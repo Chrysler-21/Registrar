@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Grade Sheet</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/modern-style.css">
+</head>
+<body>
+    <div class="wrapper">
+        <nav id="sidebar">
+            <div class="sidebar-header"><span class="sidebar-brand">EAC REGISTRAR</span></div>
+            <ul class="list-unstyled components">
+                <li><a href="/"><i class="fas fa-home sidebar-icon"></i> Dashboard</a></li>
+                <li class="active"><a href="/grades"><i class="fas fa-marker sidebar-icon"></i> Grade Sheet</a></li>
+                <li><a href="/logout"><i class="fas fa-sign-out-alt sidebar-icon"></i> Logout</a></li>
+            </ul>
+        </nav>
+
+        <div id="content">
+            <nav class="top-navbar">
+                <button id="sidebarCollapse" class="btn-toggle"><i class="fas fa-bars"></i></button>
+                <span class="fw-bold fs-5">Grading Sheet</span>
+            </nav>
+
+            <div class="container-fluid p-4">
+                
+                <div class="card card-modern p-4 mb-4 border-start border-5 border-danger">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="text-danger fw-bold" th:text="${classInfo.course_code}"></h2>
+                            <h5 class="text-muted" th:text="'Section ' + ${classInfo.section}"></h5>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-secondary mb-2" th:text="${classInfo.day}"></span>
+                            <h5 class="mb-0" th:text="${classInfo.start_time} + ' - ' + ${classInfo.end_time}"></h5>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card card-modern p-4">
+                    <h5 class="mb-3">Student Roster</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Student Name</th>
+                                    <th>Status</th>
+                                    <th>Grade Input</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="g : ${grades}">
+                                    <td>
+                                        <strong th:text="${g.student_name}"></strong>
+                                    </td>
+                                    <td>
+                                        <span th:if="${g.status == 'DRAFT'}" class="badge bg-warning text-dark">Draft</span>
+                                        <span th:if="${g.status == 'SUBMITTED'}" class="badge bg-success">Submitted</span>
+                                    </td>
+                                    <td>
+                                        <div th:if="${g.status == 'DRAFT'}">
+                                            <form action="/faculty/save-grade" method="post" class="d-flex gap-2">
+                                                <input type="hidden" name="gradeId" th:value="${g.grade_id}">
+                                                <input type="hidden" name="scheduleId" th:value="${classInfo.schedule_id}">
+                                                
+                                                <input type="number" step="0.25" min="1.0" max="5.0" name="grade" 
+                                                       class="form-control form-control-sm" 
+                                                       style="width: 100px;" 
+                                                       th:value="${g.semestral_grade}" 
+                                                       placeholder="0.00"
+                                                       th:disabled="${user.granted_permissions == null or !#strings.contains(user.granted_permissions, 'INPUT_GRADES')}">
+                                                
+                                                <button class="btn btn-sm btn-primary"
+                                                        th:disabled="${user.granted_permissions == null or !#strings.contains(user.granted_permissions, 'INPUT_GRADES')}">
+                                                    <i class="fas fa-save"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+
+                                        <div th:if="${g.status == 'SUBMITTED'}">
+                                            <span class="fw-bold fs-5" th:text="${g.semestral_grade}"></span>
+                                            <span th:text="${g.remarks}" 
+                                                  th:class="${g.remarks == 'Failed'} ? 'badge bg-danger ms-2' : 'badge bg-success ms-2'"></span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <button type="button" 
+                                                th:if="${g.status == 'SUBMITTED'}" 
+                                                class="btn btn-sm btn-outline-danger" 
+                                                data-bs-toggle="modal" 
+                                                th:attr="data-bs-target='#req'+${g.grade_id}">
+                                            Request Change
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-4 pt-3 border-top">
+                        <form action="/faculty/submit-class" method="post" onsubmit="return confirm('Finalize grades? This will lock the sheet.');">
+                            <input type="hidden" name="scheduleId" th:value="${classInfo.schedule_id}">
+                            <button class="btn btn-success float-end" 
+                                    th:disabled="${user.granted_permissions == null or !#strings.contains(user.granted_permissions, 'INPUT_GRADES')}">
+                                <i class="fas fa-check-double me-2"></i> Finalize & Submit Class
+                            </button>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:each="g : ${grades}">
+        <div class="modal fade" th:id="'req'+${g.grade_id}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <form action="/faculty/request-change" method="post" class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Request Grade Change</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Student: <strong th:text="${g.student_name}"></strong></p>
+                        <input type="hidden" name="scheduleId" th:value="${classInfo.schedule_id}">
+                        <input type="hidden" name="gradeId" th:value="${g.grade_id}">
+                        
+                        <label class="form-label">New Grade</label>
+                        <input type="number" step="0.25" name="newGrade" class="form-control mb-2" required>
+                        
+                        <label class="form-label">Reason</label>
+                        <textarea name="reason" class="form-control" rows="2" required></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button class="btn btn-danger">Submit Request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/main.js"></script>
+</body>
+</html>

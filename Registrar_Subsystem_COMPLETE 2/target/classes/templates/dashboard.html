@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Dashboard | EAC Registrar</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/modern-style.css">
+</head>
+<body>
+    <div class="wrapper">
+        <nav id="sidebar">
+            <div class="sidebar-header"><span class="sidebar-brand">EAC REGISTRAR</span></div>
+            <ul class="list-unstyled components">
+                <li class="active"><a href="/"><i class="fas fa-home sidebar-icon"></i> Dashboard</a></li>
+                
+                <li th:if="${user.granted_permissions != null and #strings.contains(user.granted_permissions, 'MANAGE_USERS')}">
+                    <a href="/admin"><i class="fas fa-user-shield sidebar-icon"></i> Users</a>
+                </li>
+                <li th:if="${user.granted_permissions != null and #strings.contains(user.granted_permissions, 'MANAGE_USERS')}">
+                    <a href="/admin/approvals"><i class="fas fa-check-circle sidebar-icon"></i> Approvals</a>
+                </li>
+                <li th:if="${user.granted_permissions != null and #strings.contains(user.granted_permissions, 'MANAGE_USERS')}">
+                    <a href="/admin/classes"><i class="fas fa-chalkboard-teacher sidebar-icon"></i> Classes</a>
+                </li>
+
+                <li th:if="${user.role == 'Student' and user.granted_permissions != null and #strings.contains(user.granted_permissions, 'ADD_DROP')}">
+                    <a href="/enrollment"><i class="fas fa-book-open sidebar-icon"></i> Enrollment</a>
+                </li>
+                <li th:if="${user.role == 'Student'}">
+                    <a href="/my-grades"><i class="fas fa-star sidebar-icon"></i> My Grades</a>
+                </li>
+                <li th:if="${user.role == 'Student'}">
+                    <a href="/my-load"><i class="fas fa-file-invoice sidebar-icon"></i> My COR</a>
+                </li>
+
+                <li th:if="${user.role == 'Faculty' and user.granted_permissions != null and #strings.contains(user.granted_permissions, 'INPUT_GRADES')}">
+                    <a href="/grades"><i class="fas fa-marker sidebar-icon"></i> Grade Sheet</a>
+                </li>
+<li th:if="${user.granted_permissions != null and #strings.contains(user.granted_permissions, 'MANAGE_LOAD')}">
+    <a href="/faculty/student-manager"><i class="fas fa-user-graduate sidebar-icon"></i> Student Manager</a>
+</li>
+                <li><a href="/logout"><i class="fas fa-sign-out-alt sidebar-icon"></i> Logout</a></li>
+            </ul>
+        </nav>
+
+        <div id="content">
+            <nav class="top-navbar">
+                <button id="sidebarCollapse" class="btn-toggle"><i class="fas fa-bars"></i></button>
+                <span class="fw-bold fs-5" th:text="'Welcome, ' + ${user.real_name}"></span>
+            </nav>
+
+            <div class="container-fluid p-4">
+                <div class="card card-modern p-5 bg-danger text-white mb-4">
+                    <h1>Welcome to IUIMS</h1>
+                    <p class="lead">Integrated University Information Management System</p>
+                    <hr class="my-4" style="border-color: rgba(255,255,255,0.3);">
+                    <p>Select a module from the sidebar to begin your session.</p>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-md-4" th:if="${user.granted_permissions != null and #strings.contains(user.granted_permissions, 'MANAGE_USERS')}">
+                        <div class="card card-modern p-3">
+                            <h5 class="text-primary"><i class="fas fa-users"></i> User Management</h5>
+                            <p class="text-muted small">Manage faculty, students, and staff accounts.</p>
+                            <a href="/admin" class="btn btn-sm btn-outline-primary">Go to Users</a>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4" th:if="${user.role == 'Student' and user.granted_permissions != null and #strings.contains(user.granted_permissions, 'ADD_DROP')}">
+                        <div class="card card-modern p-3">
+                            <h5 class="text-success"><i class="fas fa-book"></i> Enrollment</h5>
+                            <p class="text-muted small">View available classes and enroll.</p>
+                            <a href="/enrollment" class="btn btn-sm btn-outline-success">Enroll Now</a>
+                        </div>
+                    </div>
+
+                     <div class="col-md-4" th:if="${user.role == 'Faculty' and user.granted_permissions != null and #strings.contains(user.granted_permissions, 'INPUT_GRADES')}">
+                        <div class="card card-modern p-3">
+                            <h5 class="text-warning"><i class="fas fa-marker"></i> Grading</h5>
+                            <p class="text-muted small">Input and submit student grades.</p>
+                            <a href="/grades" class="btn btn-sm btn-outline-warning">View Classes</a>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/main.js"></script>
+</body>
+</html>

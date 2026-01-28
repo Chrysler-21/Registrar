@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>My Grades</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/modern-style.css">
+</head>
+<body>
+    <div class="wrapper">
+        <nav id="sidebar">
+            <div class="sidebar-header"><span class="sidebar-brand">EAC REGISTRAR</span></div>
+            <ul class="list-unstyled components">
+                <li><a href="/"><i class="fas fa-home sidebar-icon"></i> Dashboard</a></li>
+                <li><a href="/enrollment"><i class="fas fa-book-open sidebar-icon"></i> Enrollment</a></li>
+                <li class="active"><a href="/my-grades"><i class="fas fa-star sidebar-icon"></i> My Grades</a></li>
+                <li><a href="/my-load"><i class="fas fa-file-invoice sidebar-icon"></i> My COR</a></li>
+                <li><a href="/logout"><i class="fas fa-sign-out-alt sidebar-icon"></i> Logout</a></li>
+            </ul>
+        </nav>
+
+        <div id="content">
+            <nav class="top-navbar"><button id="sidebarCollapse" class="btn-toggle"><i class="fas fa-bars"></i></button><span class="fw-bold fs-5">Academic Record</span></nav>
+            <div class="container-fluid p-4">
+                <div class="card card-modern p-4">
+                    <h5 class="mb-4 text-primary"><i class="fas fa-graduation-cap me-2"></i> Grade History</h5>
+                    
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Subject</th>
+                                <th>Description</th>
+                                <th>Grade</th>
+                                <th>Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="g : ${myGrades}">
+                                <td class="fw-bold" th:text="${g.course_code}"></td>
+                                <td th:text="${g.description}"></td>
+                                <td>
+                                    <span th:if="${g.status == 'DRAFT'}" class="text-muted fst-italic">In Progress</span>
+                                    <span th:if="${g.status != 'DRAFT'}" th:text="${g.semestral_grade}" 
+                                          class="fw-bold fs-5"
+                                          th:classappend="${g.semestral_grade > 3.0} ? 'text-danger' : 'text-success'"></span>
+                                </td>
+                                <td>
+                                    <span th:if="${g.status == 'DRAFT'}" class="badge bg-secondary">Pending</span>
+                                    <span th:if="${g.status != 'DRAFT'}" 
+                                          th:text="${g.remarks}"
+                                          th:class="${g.remarks == 'Failed'} ? 'badge bg-danger' : 'badge bg-success'"></span>
+                                </td>
+                            </tr>
+                            <tr th:if="${myGrades.empty}">
+                                <td colspan="4" class="text-center text-muted p-4">No grade records found.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script><script src="/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Manage Classes</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/modern-style.css">
+</head>
+<body>
+    <div class="wrapper">
+        <nav id="sidebar">
+            <div class="sidebar-header"><span class="sidebar-brand">EAC REGISTRAR</span></div>
+            <ul class="list-unstyled components">
+                <li><a href="/"><i class="fas fa-home sidebar-icon"></i> Dashboard</a></li>
+                <li><a href="/admin"><i class="fas fa-user-shield sidebar-icon"></i> Users</a></li>
+                <li><a href="/admin/approvals"><i class="fas fa-check-circle sidebar-icon"></i> Approvals</a></li>
+                <li class="active"><a href="/admin/classes"><i class="fas fa-chalkboard-teacher sidebar-icon"></i> Classes</a></li>
+                <li><a href="/logout"><i class="fas fa-sign-out-alt sidebar-icon"></i> Logout</a></li>
+            </ul>
+        </nav>
+
+        <div id="content">
+            <nav class="top-navbar">
+                <button id="sidebarCollapse" class="btn-toggle"><i class="fas fa-bars"></i></button>
+                <span class="fw-bold fs-5">Class Schedule Management</span>
+            </nav>
+
+            <div class="container-fluid p-4">
+                <div class="row g-4">
+                    <div class="col-md-8">
+                        <div class="card card-modern p-4">
+                            <h5>Master Schedule</h5>
+                            <table class="table table-hover mt-3 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Subject</th>
+                                        <th>Schedule</th>
+                                        <th>Faculty</th>
+                                        <th>Slots</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="c : ${classes}">
+                                        <td>
+                                            <strong th:text="${c.course_code}"></strong><br>
+                                            <small class="text-muted" th:text="${c.section}"></small>
+                                        </td>
+                                        <td><span th:text="${c.pretty_schedule}"></span></td>
+                                        <td>
+                                            <span th:if="${c.faculty_name != null}" class="text-primary fw-bold" th:text="${c.faculty_name}"></span>
+                                            <span th:if="${c.faculty_name == null}" class="badge bg-warning text-dark">Unassigned</span>
+                                        </td>
+                                        <td>
+                                            <span th:text="${c.enrolled_count} + '/' + ${c.max_slots}"></span>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    data-bs-toggle="modal" 
+                                                    th:attr="data-bs-target='#assign'+${c.schedule_id}">
+                                                <i class="fas fa-user-plus"></i> Assign
+                                            </button>
+                                            <a th:href="@{/class-list/{id}(id=${c.schedule_id})}" class="btn btn-sm btn-outline-secondary" target="_blank">
+                                                <i class="fas fa-print"></i> List
+                                            </a>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="card card-modern p-4">
+                            <h5>Open New Section</h5>
+                            <form action="/create-class" method="post">
+                                <div class="mb-2">
+                                    <label>Course Code</label>
+                                    <input type="text" name="code" class="form-control" placeholder="e.g. TEST 101" required>
+                                </div>
+                                <div class="mb-2">
+                                    <label>Section</label>
+                                    <input type="text" name="section" class="form-control" placeholder="e.g. A" required>
+                                </div>
+                                <div class="mb-2">
+                                    <label>Day</label>
+                                    <select name="day" class="form-select">
+                                        <option value="Mon">Monday</option>
+                                        <option value="Tue">Tuesday</option>
+                                        <option value="Wed">Wednesday</option>
+                                        <option value="Thu">Thursday</option>
+                                        <option value="Fri">Friday</option>
+                                        <option value="Sat">Saturday</option>
+                                    </select>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-6">
+                                        <label>Start (Military)</label>
+                                        <input type="number" name="start" class="form-control" placeholder="0900" required>
+                                    </div>
+                                    <div class="col-6">
+                                        <label>End (Military)</label>
+                                        <input type="number" name="end" class="form-control" placeholder="1030" required>
+                                    </div>
+                                    <div class="form-text small">Ex: 9:00 AM = 900, 1:30 PM = 1330</div>
+                                </div>
+                                <button class="btn btn-danger w-100">Create Class</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:each="c : ${classes}">
+        <div class="modal fade" th:id="'assign'+${c.schedule_id}">
+            <div class="modal-dialog">
+                <form action="/assign-faculty" method="post" class="modal-content">
+                    <div class="modal-header"><h5>Assign Faculty</h5></div>
+                    <div class="modal-body">
+                        <p>Subject: <strong th:text="${c.course_code}"></strong></p>
+                        <p>Schedule: <span th:text="${c.pretty_schedule}"></span></p>
+                        <input type="hidden" name="scheduleId" th:value="${c.schedule_id}">
+                        <label>Select Faculty</label>
+                        <select name="facultyId" class="form-select">
+                            <option value="0">-- Unassign --</option>
+                            <option th:each="f : ${facultyList}" th:value="${f.user_id}" th:text="${f.real_name}"></option>
+                        </select>
+                    </div>
+                    <div class="modal-footer"><button class="btn btn-primary">Save Assignment</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/main.js"></script>
+</body>
+</html>

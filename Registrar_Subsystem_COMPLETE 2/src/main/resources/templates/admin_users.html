@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>User Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/modern-style.css">
+</head>
+<body>
+    <div class="wrapper">
+        <nav id="sidebar">
+            <div class="sidebar-header"><span class="sidebar-brand">EAC REGISTRAR</span></div>
+            <ul class="list-unstyled components">
+                <li><a href="/"><i class="fas fa-home sidebar-icon"></i> Dashboard</a></li>
+                <li class="active"><a href="/admin"><i class="fas fa-user-shield sidebar-icon"></i> Users</a></li>
+                <li><a href="/admin/approvals"><i class="fas fa-check-circle sidebar-icon"></i> Approvals</a></li>
+                <li><a href="/admin/classes"><i class="fas fa-chalkboard-teacher sidebar-icon"></i> Classes</a></li>
+                <li><a href="/logout"><i class="fas fa-sign-out-alt sidebar-icon"></i> Logout</a></li>
+            </ul>
+        </nav>
+
+        <div id="content">
+            <nav class="top-navbar">
+                <button id="sidebarCollapse" class="btn-toggle"><i class="fas fa-bars"></i></button>
+                <span class="fw-bold fs-5">User Management</span>
+            </nav>
+            <div class="container-fluid p-4">
+                <div class="row g-4">
+                    
+                    <div class="col-md-8">
+                        <div class="card card-modern p-4">
+                            <h5>User Directory</h5>
+                            <table class="table table-hover mt-3 align-middle">
+                                <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+                                <tbody>
+                                    <tr th:each="u : ${users}">
+                                        <td>
+                                            <strong th:text="${u.real_name}"></strong><br>
+                                            <small class="text-muted" th:text="${u.username}"></small>
+                                        </td>
+                                        <td><span class="badge bg-primary" th:text="${u.role}"></span></td>
+                                        <td>
+                                            <span th:if="${u.is_active}" class="badge bg-success">Active</span>
+                                            <span th:unless="${u.is_active}" class="badge bg-secondary">Inactive</span>
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-light text-primary" 
+                                                    data-bs-toggle="modal" 
+                                                    th:attr="data-bs-target='#edit'+${u.user_id}">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            
+                                            <form action="/admin/toggle-status" method="post" class="d-inline">
+                                                <input type="hidden" name="userId" th:value="${u.user_id}">
+                                                <input type="hidden" name="isActive" th:value="${!u.is_active}">
+                                                <button class="btn btn-sm text-secondary" title="Toggle Active"><i class="fas fa-power-off"></i></button>
+                                            </form>
+
+                                            <form action="/admin/reset-password" method="post" class="d-inline">
+                                                <input type="hidden" name="userId" th:value="${u.user_id}">
+                                                <button class="btn btn-sm text-warning" title="Reset Password"><i class="fas fa-key"></i></button>
+                                            </form>
+
+                                            <form action="/admin/delete-user" method="post" class="d-inline" onsubmit="return confirm('Delete this user?');">
+                                                <input type="hidden" name="userId" th:value="${u.user_id}">
+                                                <button class="btn btn-sm text-danger" title="Delete"><i class="fas fa-trash"></i></button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="card card-modern p-4">
+                            <h5>Add New User</h5>
+                            <form action="/create-user" method="post">
+                                <input type="text" name="username" class="form-control mb-2" placeholder="Username / ID" required>
+                                <input type="text" name="realName" class="form-control mb-2" placeholder="Real Name" required>
+                                <select name="role" class="form-select mb-2">
+                                    <option value="Student">Student</option>
+                                    <option value="Faculty">Faculty</option>
+                                    <option value="Admin">Admin</option>
+                                </select>
+                                <input type="text" name="program" class="form-control mb-3" placeholder="Program (e.g. BSIT)">
+                                
+                                <label class="fw-bold small mb-1">Permissions</label>
+                                <div class="card p-2 bg-light mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="permissions" value="ADD_DROP" checked> 
+                                        <label class="form-check-label">Enrollment</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="permissions" value="INPUT_GRADES"> 
+                                        <label class="form-check-label">Grading</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="permissions" value="MANAGE_USERS"> 
+                                        <label class="form-check-label">Admin Access</label>
+                                    </div>
+                                </div>
+
+                                <button class="btn btn-danger w-100">Create Account</button>
+                            </form>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:each="u : ${users}">
+        <div class="modal fade" th:id="'edit'+${u.user_id}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <form action="/admin/update-user" method="post" class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Manage User Access</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="userId" th:value="${u.user_id}">
+                        <div class="mb-3">
+                            <label>Role</label>
+                            <select name="role" class="form-select">
+                                <option value="Student" th:selected="${u.role=='Student'}">Student</option>
+                                <option value="Faculty" th:selected="${u.role=='Faculty'}">Faculty</option>
+                                <option value="Admin" th:selected="${u.role=='Admin'}">Admin</option>
+                            </select>
+                        </div>
+                        
+                        <div class="card p-2 bg-light">
+                            <label class="fw-bold mb-2">Granular Permissions</label>
+                            
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="permissions" value="ADD_DROP" 
+                                       th:checked="${u.granted_permissions != null and #strings.contains(u.granted_permissions, 'ADD_DROP')}"> 
+                                <label>Enrollment</label>
+                            </div>
+                            
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="permissions" value="INPUT_GRADES" 
+                                       th:checked="${u.granted_permissions != null and #strings.contains(u.granted_permissions, 'INPUT_GRADES')}"> 
+                                <label>Grading</label>
+                            </div>
+                            
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="permissions" value="MANAGE_USERS" 
+                                       th:checked="${u.granted_permissions != null and #strings.contains(u.granted_permissions, 'MANAGE_USERS')}"> 
+                                <label>Admin Access</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer"><button class="btn btn-primary">Save Changes</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/main.js"></script>
+</body>
+</html>

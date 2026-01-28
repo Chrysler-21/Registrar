@@ -1,0 +1,75 @@
+:root {
+    --eac-red: #8B0000;
+    --eac-dark: #5a0000;
+    --eac-gold: #D4AF37;
+    --sidebar-width: 260px;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f4f7f6;
+    overflow-x: hidden;
+}
+
+/* WRAPPER */
+.wrapper { display: flex; width: 100%; align-items: stretch; }
+
+/* SIDEBAR */
+#sidebar {
+    min-width: var(--sidebar-width);
+    max-width: var(--sidebar-width);
+    background: linear-gradient(180deg, var(--eac-red) 0%, var(--eac-dark) 100%);
+    color: #fff;
+    transition: all 0.3s;
+    min-height: 100vh;
+    box-shadow: 4px 0 15px rgba(0,0,0,0.1);
+    z-index: 999;
+}
+#sidebar.active { margin-left: calc(var(--sidebar-width) * -1); }
+
+.sidebar-header { padding: 20px; background: rgba(0,0,0,0.1); border-bottom: 1px solid rgba(255,255,255,0.1); text-align: center; }
+.sidebar-brand { font-family: 'Times New Roman', serif; font-weight: bold; letter-spacing: 1px; font-size: 1.2rem; display: block; margin-top: 10px; }
+
+#sidebar ul.components { padding: 20px 0; }
+#sidebar ul li { padding: 5px 15px; }
+#sidebar ul li a { padding: 12px 15px; font-size: 0.95em; display: block; color: rgba(255,255,255,0.8); text-decoration: none; border-radius: 10px; transition: all 0.3s; }
+#sidebar ul li a:hover { color: #fff; background: rgba(255,255,255,0.1); transform: translateX(5px); }
+
+#sidebar ul li.active > a { color: var(--eac-red); background: #fff; font-weight: bold; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+#sidebar ul li.active > a i { color: var(--eac-gold); }
+.sidebar-icon { width: 25px; text-align: center; margin-right: 10px; }
+
+/* CONTENT */
+#content { width: 100%; min-height: 100vh; transition: all 0.3s; }
+
+/* NAVBAR */
+.top-navbar { background: #fff; padding: 15px 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
+.btn-toggle { background: var(--eac-red); color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
+
+/* CARDS */
+.card-modern { border: none; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); background: #fff; transition: transform 0.3s; }
+.card-modern:hover { transform: translateY(-5px); }
+
+/* PRINT */
+@media print {
+    #sidebar, .top-navbar, .btn, .d-print-none { display: none !important; }
+    #content { margin: 0; padding: 0; }
+    .card-modern { box-shadow: none; border: 1px solid #ddd; }
+    :root { --eac-red: #8B0000; --eac-dark: #5a0000; --eac-gold: #D4AF37; --sidebar-width: 260px; }
+body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f4f7f6; overflow-x: hidden; }
+.wrapper { display: flex; width: 100%; align-items: stretch; }
+#sidebar { min-width: var(--sidebar-width); max-width: var(--sidebar-width); background: linear-gradient(180deg, var(--eac-red) 0%, var(--eac-dark) 100%); color: #fff; transition: all 0.3s; min-height: 100vh; z-index: 999; }
+#sidebar.active { margin-left: calc(var(--sidebar-width) * -1); }
+.sidebar-header { padding: 20px; background: rgba(0,0,0,0.1); text-align: center; }
+.sidebar-brand { font-family: 'Times New Roman', serif; font-weight: bold; display: block; margin-top: 10px; font-size: 1.2rem; }
+#sidebar ul.components { padding: 20px 0; }
+#sidebar ul li a { padding: 12px 15px; display: block; color: rgba(255,255,255,0.8); text-decoration: none; border-radius: 10px; transition: 0.3s; margin: 0 10px; }
+#sidebar ul li a:hover { color: #fff; background: rgba(255,255,255,0.1); }
+#sidebar ul li.active > a { color: var(--eac-red); background: #fff; font-weight: bold; }
+.sidebar-icon { width: 25px; text-align: center; margin-right: 10px; }
+#content { width: 100%; min-height: 100vh; }
+.top-navbar { background: #fff; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+.btn-toggle { background: var(--eac-red); color: white; border: none; padding: 5px 15px; border-radius: 5px; }
+.card-modern { border: none; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); background: #fff; }
+@media print { #sidebar, .top-navbar, .btn, .d-print-none { display: none !important; } #content { margin: 0; padding: 0; } }
+}

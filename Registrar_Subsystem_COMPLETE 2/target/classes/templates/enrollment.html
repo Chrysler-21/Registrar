@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Available Classes</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/modern-style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="wrapper">
+        <nav id="sidebar">
+            <div class="sidebar-header"><span class="sidebar-brand">EAC REGISTRAR</span></div>
+            <ul class="list-unstyled components">
+                <li><a href="/"><i class="fas fa-home sidebar-icon"></i> Dashboard</a></li>
+                <li class="active"><a href="/enrollment"><i class="fas fa-book-open sidebar-icon"></i> Enrollment</a></li>
+                <li><a href="/my-grades"><i class="fas fa-star sidebar-icon"></i> My Grades</a></li>
+                <li><a href="/my-load"><i class="fas fa-file-invoice sidebar-icon"></i> My COR</a></li>
+                <li><a href="/logout"><i class="fas fa-sign-out-alt sidebar-icon"></i> Logout</a></li>
+            </ul>
+        </nav>
+        
+        <div id="content">
+            <nav class="top-navbar"><button id="sidebarCollapse" class="btn-toggle"><i class="fas fa-bars"></i></button><span class="fw-bold fs-5">Class Offerings</span></nav>
+            <div class="container-fluid p-4">
+                
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i> 
+                    <strong>Read-Only Mode:</strong> Students cannot self-enroll. Please visit your Dean or Adviser to add subjects.
+                </div>
+
+                <div class="card card-modern p-4">
+                    <h5 class="mb-4 text-danger"><i class="fas fa-calendar-alt me-2"></i> Available Classes</h5>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Subject</th>
+                                    <th>Schedule</th>
+                                    <th>Faculty</th>
+                                    <th class="text-center">Slots</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="c : ${classes}">
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-danger text-white rounded p-2 me-3 fw-bold" style="width:50px; text-align:center;">
+                                                <span th:text="${c.section}"></span>
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-0 fw-bold" th:text="${c.course_code}"></h6>
+                                                <small class="text-muted">3 Units</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <i class="far fa-clock text-danger me-1"></i> 
+                                        <span th:text="${c.pretty_schedule}"></span>
+                                    </td>
+                                    <td>
+                                        <span th:if="${c.faculty_name}" th:text="${c.faculty_name}"></span>
+                                        <span th:unless="${c.faculty_name}" class="badge bg-secondary">TBA</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-light text-dark border" th:text="${c.enrolled_count} + ' / ' + ${c.max_slots}"></span>
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-secondary" disabled>
+                                            <i class="fas fa-lock"></i> Locked
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script><script src="/js/main.js"></script>
+</body>
+</html>
