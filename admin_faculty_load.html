@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <title>Faculty Teaching Load — EAC Registrar</title>
+    <th:block th:replace="~{fragments/layout :: head}"></th:block>
+    <style th:attr="nonce=${cspNonce}">
+        .faculty-page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .faculty-filter-card {
+            margin-bottom: 2rem;
+            padding: 1.25rem;
+            overflow: visible;
+        }
+        .faculty-filter-form {
+            margin: 0;
+            display: grid;
+            grid-template-columns: minmax(220px, 320px) minmax(260px, 1fr) auto;
+            gap: 1rem;
+            align-items: end;
+        }
+        .faculty-filter-form > div {
+            min-width: 0;
+        }
+        .faculty-filter-form .form-label {
+            line-height: 1.2;
+            margin-bottom: 0.45rem;
+        }
+        .faculty-filter-form .form-control {
+            width: 100%;
+            height: 38px;
+            line-height: 1.4;
+            font-family: inherit;
+            font-size: 13px;
+        }
+        .faculty-filter-form .btn {
+            min-height: 38px;
+            padding: .55rem 1rem;
+            white-space: nowrap;
+        }
+        .faculty-filter-action {
+            display: flex;
+            justify-content: flex-end;
+            align-items: flex-end;
+        }
+        .faculty-stats-bar {
+            margin-bottom: 2rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+        .faculty-table-wrap {
+            overflow-x: auto;
+        }
+        .stats-bar { margin-bottom: 2rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; }
+        .stat-card { background: white; border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; }
+        .stat-card .val { font-size: 2rem; font-weight: 800; color: var(--text-primary); line-height: 1.2; }
+        .stat-card .lbl { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.5rem; }
+        .stat-overloaded { border-left: 4px solid var(--danger-color); }
+        .stat-overloaded .val { color: var(--danger-color); }
+        .stat-green { border-left: 4px solid var(--success-color); }
+        .stat-green .val { color: var(--success-color); }
+
+        .load-bar-wrap { display: flex; align-items: center; gap: 0.75rem; }
+        .load-bar { flex: 1; height: 8px; background: var(--bg-tertiary); border-radius: 99px; overflow: hidden; min-width: 100px; }
+        .load-bar-fill { height: 100%; border-radius: 99px; transition: width 0.4s ease; }
+        .fill-green  { background: var(--success-color); }
+        .fill-yellow { background: var(--warning-color); }
+        .fill-red    { background: var(--danger-color); }
+        .load-text { font-size: 0.85rem; font-weight: 700; min-width: 44px; text-align: right; }
+
+        .badge-type { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 99px; font-size: 0.75rem; font-weight: 700; background: var(--bg-tertiary); color: var(--text-secondary); }
+        .badge-type.full-time { background: rgba(16, 185, 129, 0.1); color: #059669; }
+
+        /* Modal styling */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1050;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+        }
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-dialog {
+            background: white;
+            border-radius: var(--radius-lg);
+            width: 100%;
+            max-width: 700px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow-lg);
+            animation: modalFadeIn 0.3s ease;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+        
+        .section-list { list-style: none; display: flex; flex-direction: column; gap: 0.75rem; padding: 0; margin: 0; }
+        .section-item { background: white; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow-sm); }
+        .section-item .s-name { font-weight: 600; font-size: 0.95rem; color: var(--text-primary); margin-top: 0.25rem; }
+        .section-item .s-units { font-size: 0.9rem; font-weight: 700; color: var(--primary-color); background: rgba(59, 130, 246, 0.1); padding: 0.25rem 0.75rem; border-radius: 99px; }
+        .section-item .s-code  { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
+        @media (max-width: 920px) {
+            .faculty-page-header {
+                align-items: flex-start;
+            }
+            .faculty-filter-form {
+                grid-template-columns: 1fr 1fr;
+            }
+            .faculty-filter-form > div {
+                min-width: 0;
+            }
+            .faculty-stats-bar {
+                gap: 1rem;
+            }
+        }
+        @media (max-width: 720px) {
+            .faculty-page-header {
+                gap: 0.75rem;
+            }
+            .faculty-filter-form {
+                grid-template-columns: 1fr;
+            }
+            .faculty-filter-form > div,
+            .faculty-filter-form button {
+                width: 100%;
+            }
+            .faculty-filter-action {
+                justify-content: stretch;
+            }
+            .faculty-stats-bar {
+                grid-template-columns: 1fr;
+            }
+            .faculty-table-wrap table {
+                min-width: 920px;
+            }
+            .modal-body .section-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+            .modal-body .section-item .s-units {
+                align-self: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="app">
+    <th:block th:replace="~{fragments/layout :: topbar}"></th:block>
+    
+    <div class="body-wrapper">
+        <th:block th:replace="~{fragments/layout :: sidebar('faculty')}"></th:block>
+        
+        <div class="main">
+            
+            <div class="faculty-page-header">
+                <div>
+                    <h1 class="page-title">Faculty Teaching Load</h1>
+                    <p class="page-subtitle">Load equals each assigned section's total catalog credit units (lecture plus laboratory), unless a coordinator-equivalent load is configured.</p>
+                </div>
+            </div>
+
+            <div class="card" th:if="${msg != null}" style="margin-bottom: 1.5rem; border-left: 4px solid var(--primary-color);">
+                <div style="font-weight: 600; color: var(--text-primary);" th:text="${msg}">Update completed.</div>
+            </div>
+
+            <div class="card" th:if="${assignmentAudit != null and assignmentAudit.needs_attention}" style="margin-bottom: 1.5rem; border-left: 4px solid var(--danger-color);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
+                    <div style="max-width: 780px;">
+                        <div style="font-weight: 800; color: var(--danger-color); margin-bottom: 0.5rem;">
+                            Scheduling integrity warning
+                        </div>
+                        <p style="margin: 0 0 0.65rem; color: var(--text-primary);">
+                            This term has integrity signals that can distort faculty load and conflict checks.
+                        </p>
+                        <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem;"
+                           th:if="${assignmentAudit.suspicious_assignment_concentration}">
+                            <span th:text="${assignmentAudit.top_faculty_name}">Faculty</span>
+                            currently owns
+                            <strong th:text="${assignmentAudit.top_faculty_assigned_sections}">0</strong>
+                            of
+                            <strong th:text="${assignmentAudit.assigned_sections}">0</strong>
+                            assigned sections in this term
+                            (<span th:text="${assignmentAudit.top_faculty_assigned_share_pct}">0</span>%).
+                            That usually indicates a bulk faculty stamp rather than valid scheduling data.
+                        </p>
+                        <p style="margin: 0.5rem 0 0; color: var(--text-muted); font-size: 0.9rem;"
+                           th:if="${assignmentAudit.duplicate_section_groups > 0}">
+                            Duplicate course/term/section tuples detected:
+                            <strong th:text="${assignmentAudit.duplicate_section_rows}">0</strong>
+                            row(s) across
+                            <strong th:text="${assignmentAudit.duplicate_section_groups}">0</strong>
+                            duplicate group(s).
+                        </p>
+                    </div>
+                    <form th:if="${assignmentAudit.suspicious_assignment_concentration}" th:action="@{/admin/faculty-load/repair-suspicious}" method="post" style="margin: 0;">
+                        <input type="hidden" name="termId" th:value="${selectedTermId}">
+                        <button type="submit" class="btn btn-outline" data-confirm="Clear suspicious faculty assignments for this term? This resets faculty_id on affected sections and schedule rows." data-confirm-title="Clear suspicious assignments?" data-confirm-tone="danger">
+                            <i class="ti ti-shield-x" aria-hidden="true"></i> Clear Suspicious Assignments
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card faculty-filter-card">
+                <form method="get" th:action="@{/admin/faculty-load}" class="faculty-filter-form">
+                    <div>
+                        <label class="form-label">Academic Term</label>
+                        <select name="termId" id="termSelect" class="form-control">
+                            <option th:each="t : ${terms}" th:value="${t.term_id}" th:text="|${t.term_name} (${t.status})|" th:selected="${t.term_id == selectedTermId}">Term</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Department</label>
+                        <select name="departmentId" id="deptSelect" class="form-control">
+                            <option value="">All Departments</option>
+                            <option th:each="d : ${departments}" th:value="${d.department_id}" th:text="${d.department_name}" th:selected="${d.department_id == selectedDeptId}">Dept</option>
+                        </select>
+                    </div>
+                    <div class="faculty-filter-action">
+                        <button type="submit" class="btn btn-primary"><i class="ti ti-filter" aria-hidden="true"></i> Apply Filter</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Stats Summary -->
+            <div class="faculty-stats-bar" th:if="${filtersApplied}">
+                <div class="stat-card">
+                    <div class="val" th:text="${#lists.size(loads)}">0</div>
+                    <div class="lbl">Total Faculty</div>
+                </div>
+                <div class="stat-card stat-overloaded">
+                    <div class="val" th:text="${#lists.size(loads.?[is_overloaded == 1])}">0</div>
+                    <div class="lbl">Overloaded</div>
+                </div>
+                <div class="stat-card stat-green">
+                    <div class="val" th:text="${#lists.size(loads.?[section_count > 0 and is_overloaded == 0])}">0</div>
+                    <div class="lbl">Within Limit</div>
+                </div>
+                <div class="stat-card">
+                    <div class="val" th:text="${#lists.size(loads.?[section_count == 0])}">0</div>
+                    <div class="lbl">No Sections</div>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="card" style="padding: 0; overflow: hidden;" th:if="${filtersApplied}">
+                <div class="faculty-table-wrap">
+                    <table class="table-eac">
+                        <thead>
+                            <tr>
+                                <th style="padding-left: 1.5rem;">Faculty</th>
+                                <th>Department</th>
+                                <th style="text-align: center;">Type</th>
+                                <th style="text-align: center;">Sections</th>
+                                <th style="text-align: center;">Load (Units)</th>
+                                <th style="width: 20%;">Progress</th>
+                                <th>Status</th>
+                                <th style="padding-right: 1.5rem; text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:if="${#lists.isEmpty(loads)}">
+                                <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 3rem;">No faculty data found for this term/department.</td>
+                            </tr>
+                            <tr th:each="f : ${loads}">
+                                <td style="padding-left: 1.5rem;">
+                                    <div style="font-weight: 700; color: var(--primary-color);" th:text="${f.full_name}">Name</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;" th:text="${f.employee_number}">EMP</div>
+                                </td>
+                                <td style="font-weight: 500;" th:text="${f.department_name}">Dept</td>
+                                <td style="text-align: center;">
+                                    <span class="badge-type" th:classappend="${f.employment_type != null and f.employment_type.contains('Full')} ? 'full-time' : ''" th:text="${f.employment_type ?: '—'}">Type</span>
+                                </td>
+                                <td style="text-align: center; font-weight: 600;" th:text="${f.section_count}">0</td>
+                                <td style="text-align: center;">
+                                    <span style="font-weight: 700; color: var(--text-primary);" th:text="${f.total_load_units}">0</span>
+                                    <span style="color: var(--text-muted); font-size: 0.85rem;" th:text="' / ' + ${f.max_teaching_units}">/18</span>
+                                </td>
+                                <td>
+                                    <div class="load-bar-wrap">
+                                        <div class="load-bar">
+                                            <div class="load-bar-fill" th:classappend="${f.is_overloaded == 1} ? 'fill-red' : (${f.load_pct != null and f.load_pct >= 80} ? 'fill-yellow' : 'fill-green')" th:style="'width:' + ${f.load_pct != null ? (f.load_pct > 100 ? 100 : f.load_pct) : 0} + '%'"></div>
+                                        </div>
+                                        <span class="load-text" th:style="${f.is_overloaded == 1} ? 'color: var(--danger-color);' : (${f.load_pct != null and f.load_pct >= 80} ? 'color: var(--warning-color);' : 'color: var(--success-color);')" th:text="${f.load_pct != null ? f.load_pct : 0} + '%'">0%</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="status-badge" th:classappend="${f.is_overloaded == 1} ? 'rejected' : (${f.load_pct != null and f.load_pct >= 80} ? 'pending' : (${f.section_count == 0} ? '' : 'enrolled'))">
+                                        <div class="status-dot"></div>
+                                        <span th:text="${f.is_overloaded == 1} ? 'Overloaded' : (${f.load_pct != null and f.load_pct >= 80} ? 'Near Limit' : (${f.section_count == 0} ? 'Unassigned' : 'OK'))">Status</span>
+                                    </span>
+                                </td>
+                                <td style="padding-right: 1.5rem; text-align: right;">
+                                    <button type="button" class="btn btn-outline" style="padding: 0.3rem 0.8rem; font-size: 0.85rem;" onclick="showDetail(this)" th:attr="data-faculty-id=${f.faculty_id}, data-term-id=${selectedTermId}, data-name=${f.full_name}">
+                                        <i class="ti ti-list-details" aria-hidden="true"></i> Details
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Detail Modal -->
+<div id="detailModal" class="modal">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h4 style="margin: 0; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+                <i class="ti ti-user-scan" style="color: var(--primary-color);"></i>
+                <span id="modalTitle">Faculty Sections</span>
+            </h4>
+            <button class="btn btn-outline" style="border: none; padding: 0.5rem;" onclick="closeModal()">
+                <i class="ti ti-x" aria-hidden="true"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="modalBody">
+            <div style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                <i class="ti ti-loader ti-spin" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+                <p>Loading details...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:attr="nonce=${cspNonce}">
+function showDetail(btn) {
+    const facultyId = btn.dataset.facultyId;
+    const termId    = btn.dataset.termId;
+    const name      = btn.dataset.name;
+
+    document.getElementById('modalTitle').textContent = name + ' — Assigned Sections';
+    document.getElementById('modalBody').innerHTML = `
+        <div style="text-align: center; color: var(--text-muted); padding: 2rem;">
+            <i class="ti ti-loader ti-spin" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+            <p>Loading details...</p>
+        </div>`;
+    document.getElementById('detailModal').classList.add('show');
+
+    const basePath = (typeof contextPath !== 'undefined' && contextPath) ? contextPath : '/registrar/';
+    fetch(basePath + 'api/faculty/' + facultyId + '/load?termId=' + termId)
+        .then(r => r.json())
+        .then(data => {
+            const s = data.summary;
+            const sections = data.sections;
+            let html = `
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                    <div style="background: white; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; text-align: center; box-shadow: var(--shadow-sm);">
+                        <div style="font-size: 1.5rem; font-weight: 800; color: var(--primary-color);">${s.total_load_units}<span style="color: var(--text-muted); font-size: 1rem;">/${s.max_teaching_units}</span></div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-top: 0.25rem;">Units Loaded</div>
+                    </div>
+                    <div style="background: white; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; text-align: center; box-shadow: var(--shadow-sm);">
+                        <div style="font-size: 1.5rem; font-weight: 800; color: ${s.remaining_units < 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${s.remaining_units}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-top: 0.25rem;">Remaining Units</div>
+                    </div>
+                    <div style="background: white; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; text-align: center; box-shadow: var(--shadow-sm);">
+                        <div style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary);">${s.load_pct}%</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-top: 0.25rem;">Load Utilization</div>
+                    </div>
+                </div>`;
+
+            if (!sections || sections.length === 0) {
+                html += '<div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted); border: 1px dashed var(--border-color); border-radius: var(--radius-md);"><i class="ti ti-books" style="font-size: 2.5rem; opacity: 0.5; margin-bottom: 1rem;"></i><p>No sections assigned this term.</p></div>';
+            } else {
+                html += '<ul class="section-list">';
+                sections.forEach(sec => {
+                    const coordNote = sec.is_coordinator_based == 1
+                        ? ' <span class="status-badge pending" style="margin-left: 0.5rem;"><div class="status-dot"></div>Coordinator</span>' : '';
+                    html += `
+                        <li class="section-item">
+                            <div>
+                                <div class="s-code">${sec.course_code} — ${sec.section_code}</div>
+                                <div class="s-name">${sec.course_title}${coordNote}</div>
+                            </div>
+                            <div class="s-units">${sec.effective_load_units} units</div>
+                        </li>`;
+                });
+                html += '</ul>';
+            }
+            document.getElementById('modalBody').innerHTML = html;
+        })
+        .catch(() => {
+            document.getElementById('modalBody').innerHTML = '<div style="text-align: center; color: var(--danger-color); padding: 2rem;"><i class="ti ti-alert-triangle" style="font-size: 2rem; margin-bottom: 1rem;"></i><p>Failed to load detail.</p></div>';
+        });
+}
+
+function closeModal() {
+    document.getElementById('detailModal').classList.remove('show');
+}
+</script>
+</body>
+</html>

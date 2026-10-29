@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>My Grades</title>
+    <link th:href="@{/vendor/bootstrap/5.3.0/css/bootstrap.min.css}" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/vendor/fontawesome/6.4.0/css/all.min.css}">
+    <link rel="stylesheet" th:href="@{/css/modern-style.css}">
+    <th:block th:replace="~{fragments/csrf :: support}"></th:block>
+
+<script th:attr="nonce=${cspNonce}" th:inline="javascript">
+    /* This creates a global JS variable with the correct folder path */
+    const contextPath = /*[[@{/}]]*/ '';
+</script>
+</head>
+<body class="bg-light">
+    <div class="wrapper">
+        <nav id="sidebar">
+            <div class="sidebar-header"><span class="sidebar-brand">STUDENT PORTAL</span></div>
+            <ul class="list-unstyled components">
+                <li><a th:href="@{/}"><i class="fas fa-home sidebar-icon"></i> Dashboard</a></li>
+                <li><a th:href="@{/my-load}"><i class="fas fa-calendar-alt sidebar-icon"></i> My Schedule & Registration Form</a></li>
+                <li class="active"><a th:href="@{/my-grades}"><i class="fas fa-award sidebar-icon"></i> My Grades</a></li>
+                <li><a th:href="@{/student/finance}"><i class="fas fa-file-invoice-dollar sidebar-icon"></i> Statement of Account</a></li>
+                <li>
+                    <form th:action="@{/logout}" method="post" style="margin: 0;">
+                        <button type="submit" class="nav-item" style="width: 100%; text-align: left; background: none; border: 0; padding: 0;">
+                            <i class="fas fa-sign-out-alt sidebar-icon"></i> Logout
+                        </button>
+                    </form>
+                </li>
+            </ul>
+        </nav>
+
+        <div id="content">
+            <nav class="top-navbar"><span class="fw-bold fs-5">Academic Records & Grades</span></nav>
+
+            <div class="container-fluid p-4">
+                <div class="card card-modern border-start border-5 border-primary shadow-sm">
+                    <div class="card-header bg-white fw-bold"><i class="fas fa-history text-primary me-2"></i> COMPLETE ACADEMIC HISTORY</div>
+                   <div class="card-body">
+                        <div th:each="year : ${academicHistory}" class="mb-4 border border-1 rounded p-3 bg-light">
+                            <h6 class="border-bottom pb-2 fw-bold text-dark"><i class="fas fa-calendar-alt me-2 text-primary"></i> Curriculum Year: <span th:text="${year.key}"></span></h6>
+                            <div class="table-responsive bg-white shadow-sm rounded">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th width="15%" class="ps-4">Code</th>
+                                            <th width="30%">Description</th>
+                                            <th width="10%" class="text-center">Prelim</th>
+                                            <th width="10%" class="text-center">Midterm</th>
+                                            <th width="10%" class="text-center">Finals</th>
+                                            <th width="12%" class="text-center">Sem Grade</th>
+                                            <th width="13%" class="text-center pe-4">Remarks</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="sub : ${year.value}">
+                                            <td class="fw-bold text-primary ps-4" th:text="${sub.course_code}"></td>
+                                            <td class="small" th:text="${sub.description}"></td>
+                                            
+                                            <td class="text-center">
+                                                <span class="fw-bold text-muted" th:text="${sub.prelim_score}"></span><br>
+                                                <small class="text-success fw-bold" th:text="${sub.prelim_point}"></small>
+                                            </td>
+                                            
+                                            <td class="text-center">
+                                                <span class="fw-bold text-muted" th:text="${sub.midterm_score}"></span><br>
+                                                <small class="text-success fw-bold" th:text="${sub.midterm_point}"></small>
+                                            </td>
+                                            
+                                            <td class="text-center">
+                                                <span class="fw-bold text-muted" th:text="${sub.finals_score}"></span><br>
+                                                <small class="text-success fw-bold" th:text="${sub.final_point}"></small>
+                                            </td>
+                                            
+                                            <td class="text-center fw-bold fs-6 text-primary" th:text="${sub.semestral_score}"></td>
+                                            
+                                            <td class="text-center pe-4">
+                                                <span th:class="${sub.remarks == 'Failed' ? 'badge bg-danger' : (sub.remarks == 'Passed' ? 'badge bg-success' : (sub.remarks == 'INC' ? 'badge bg-warning text-dark' : 'badge bg-secondary'))}" 
+                                                      th:text="${sub.remarks}"></span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div th:if="${#maps.isEmpty(academicHistory)}" class="text-center text-muted py-3">No academic records available.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script th:attr="nonce=${cspNonce}" th:src="@{/vendor/bootstrap/5.3.0/js/bootstrap.bundle.min.js}"></script>
+</body>
+</html>

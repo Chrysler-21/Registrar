@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head}"></head>
+<body>
+<div class="app">
+    <div th:replace="~{fragments/layout :: topbar}"></div>
+
+    <div class="body-wrapper">
+        <nav th:replace="~{fragments/layout :: sidebar(activeLink='ledger')}"></nav>
+
+        <main class="main" role="main" id="main-content">
+            <div class="breadcrumb" aria-label="Breadcrumb">
+                <i class="ti ti-home" aria-hidden="true"></i>
+                <i class="ti ti-chevron-right" aria-hidden="true"></i>
+                <span>Finance & Billing</span>
+                <i class="ti ti-chevron-right" aria-hidden="true"></i>
+                <span>Student Ledger</span>
+            </div>
+
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">Student Official Ledger</h1>
+                    <p class="page-subtitle">View financial transactions, payments, and account balances.</p>
+                </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="card" style="margin-bottom: 2rem; padding: 1.5rem;">
+                <form th:action="@{/admin/scholar-ledger}" method="GET" class="ledger-search-form">
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; display: block;">Search Records</label>
+                        <input type="text" name="keyword" class="form-control" placeholder="Student Number or Surname..." th:value="${keyword}" required>
+                    </div>
+                    <div>
+                        <button type="submit" class="btn btn-primary"><i class="ti ti-search" aria-hidden="true"></i> View Ledger</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Error Message -->
+            <div th:if="${errorMessage}" class="status-badge inactive" style="margin-bottom: 1.5rem; display: inline-flex; width: auto; font-size: 1rem; padding: 0.75rem 1rem;">
+                <div class="status-dot"></div>
+                <span th:text="${errorMessage}"></span>
+            </div>
+
+            <!-- Data section -->
+            <div th:if="${student != null}">
+                
+                <!-- Profile Summary -->
+                <div class="card" style="margin-bottom: 2rem; border-left: 4px solid var(--primary-color);">
+                    <div class="ledger-summary-grid">
+                        <div>
+                            <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 0.25rem;">Student Name</label>
+                            <span style="font-size: 1.1rem; font-weight: 600; color: var(--text-primary);" th:text="${student.real_name}"></span>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 0.25rem;">Student ID</label>
+                            <span style="font-size: 1.1rem; font-weight: 700; color: var(--primary-color); font-family: monospace;" th:text="${student.username}"></span>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 0.25rem;">Program</label>
+                            <span style="font-size: 1rem; font-weight: 600;" th:text="${student.program_code}"></span>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 0.25rem;">Current Term</label>
+                            <span style="font-size: 1rem; font-weight: 600;">Year <span th:text="${student.year_level}"></span>, Sem <span th:text="${student.semester}"></span></span>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 0.25rem;">Status</label>
+                            <span class="status-badge" th:classappend="${student.admission_status == 'ENROLLED' ? 'enrolled' : 'waitlist'}" th:text="${student.admission_status}"></span>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 0.25rem;">Outstanding</label>
+                            <span style="font-size: 1.25rem; font-weight: 700; color: #DC2626;" th:text="${'₱ ' + #numbers.formatDecimal(outstandingBalance, 1, 'COMMA', 2, 'POINT')}"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ledger-layout">
+                    
+                    <!-- Left Column: Transaction History & Payments -->
+                    <div class="ledger-column">
+                        
+                        <!-- Transaction History -->
+                        <div class="card" style="border-left: 4px solid var(--text-muted);">
+                            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                                <h5 class="card-title" style="margin: 0; color: var(--text-primary);"><i class="ti ti-list-details" aria-hidden="true" style="color: var(--text-muted);"></i> Transaction History</h5>
+                                <span class="status-badge inactive" style="font-family: monospace;">Total Records: <span th:text="${#lists.size(rawLedger)}"></span></span>
+                            </div>
+                            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                <table class="table-eac" style="margin: 0;">
+                                    <thead style="position: sticky; top: 0; background: var(--bg-tertiary); z-index: 1;">
+                                        <tr>
+                                            <th>Date & Time</th>
+                                            <th>Transaction Description</th>
+                                            <th style="text-align: right;">Debit (Charge)</th>
+                                            <th style="text-align: right;">Credit (Payment)</th>
+                                            <th style="text-align: right;">Running Balance</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:if="${#lists.isEmpty(rawLedger)}"><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">No transaction history found.</td></tr>
+                                        <tr th:each="row : ${rawLedger}">
+                                            <td style="font-size: 0.85rem;" th:text="${#dates.format(row.transaction_date, 'MMM dd, yyyy hh:mm a')}"></td>
+                                            <td style="font-weight: 600; font-size: 0.85rem; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" th:title="${row.description}" th:text="${row.description}"></td>
+                                            <td style="text-align: right; color: #DC2626; font-size: 0.85rem; font-family: monospace;" th:text="${row.debit != null and row.debit > 0 ? #numbers.formatDecimal(row.debit, 1, 'COMMA', 2, 'POINT') : '-'}"></td>
+                                            <td style="text-align: right; color: var(--success-color); font-weight: 600; font-size: 0.85rem; font-family: monospace;" th:text="${row.credit != null and row.credit > 0 ? #numbers.formatDecimal(row.credit, 1, 'COMMA', 2, 'POINT') : '-'}"></td>
+                                            <td style="text-align: right; color: var(--primary-color); font-weight: 700; font-size: 0.9rem; font-family: monospace;" th:text="${#numbers.formatDecimal(row.running_balance, 1, 'COMMA', 2, 'POINT')}"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Payment Details -->
+                        <div class="card" style="border-left: 4px solid var(--success-color);">
+                            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: none; padding-bottom: 0;">
+                                <h5 class="card-title" style="margin: 0; color: var(--success-color);"><i class="ti ti-cash" aria-hidden="true"></i> Payment Details</h5>
+                                <span class="status-badge enrolled" style="font-family: monospace;">Total Records: <span th:text="${#lists.size(paymentHistory)}"></span></span>
+                            </div>
+                            
+                            <div class="ledger-filter-bar">
+                                <div>
+                                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.25rem; display: block;">Payment Type</label>
+                                    <select id="filterType" class="form-control" style="font-size: 0.85rem; padding: 0.4rem;" onchange="filterPayments()">
+                                        <option value="ALL">-- All Types --</option>
+                                        <option value="Tuition Fee">Tuition Fee</option>
+                                        <option value="Downpayment">Downpayment</option>
+                                        <option value="Certificate">Certificates / Documents</option>
+                                        <option value="Parking">Parking</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.25rem; display: block;">Date Paid</label>
+                                    <input type="date" id="filterDate" class="form-control" style="font-size: 0.85rem; padding: 0.4rem;" onchange="filterPayments()">
+                                </div>
+                                <div>
+                                    <button class="btn btn-ghost" style="padding: 0.4rem 0.75rem; font-size: 0.85rem;" onclick="resetFilters()"><i class="ti ti-refresh" aria-hidden="true"></i> Reset</button>
+                                </div>
+                            </div>
+
+                            <div class="table-responsive" style="max-height: 400px; overflow-y: auto; border-top: 1px solid var(--border-color);">
+                                <table class="table-eac" id="paymentTable" style="margin: 0;">
+                                    <thead style="position: sticky; top: 0; background: var(--bg-tertiary); z-index: 1;">
+                                        <tr>
+                                            <th>Type / Remarks</th>
+                                            <th>OR Number</th>
+                                            <th style="text-align: right;">Amount</th>
+                                            <th>Date Paid</th>
+                                            <th style="text-align: center;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:if="${#lists.isEmpty(paymentHistory)}"><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">No payment records found.</td></tr>
+                                        <tr th:each="p : ${paymentHistory}" class="payment-row" th:data-type="${p['REMARKS'] != null ? p['REMARKS'] : 'Tuition Fee'}" th:data-date="${#dates.format(p['PAYMENT_DATE'], 'yyyy-MM-dd')}">
+                                            <td style="font-size: 0.85rem;" th:text="${p['REMARKS'] != null ? p['REMARKS'] : 'Tuition Fee'}"></td>
+                                            <td style="font-family: monospace; font-weight: 700; color: var(--primary-color); font-size: 0.9rem;" th:text="${p['OR_NUMBER']}"></td>
+                                            <td style="text-align: right; color: var(--success-color); font-weight: 700; font-size: 0.9rem; font-family: monospace;" th:text="${'₱ ' + #numbers.formatDecimal(p['AMOUNT'], 1, 'COMMA', 2, 'POINT')}"></td>
+                                            <td style="font-size: 0.85rem;" th:text="${#dates.format(p['PAYMENT_DATE'], 'MMM dd, yyyy hh:mm a')}"></td>
+                                            <td style="text-align: center; color: var(--text-muted); font-size: 0.75rem; font-family: monospace;" th:text="${p['TRANSACTION_ID']}"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Academic Load -->
+                    <div class="ledger-column">
+                        <div class="card" style="border-left: 4px solid #3B82F6;">
+                            <div class="card-header">
+                                <h5 class="card-title" style="margin: 0; color: #3B82F6;"><i class="ti ti-book" aria-hidden="true"></i> Current Academic Load</h5>
+                            </div>
+                            <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                                <table class="table-eac" style="margin: 0;">
+                                    <thead style="position: sticky; top: 0; background: var(--bg-tertiary); z-index: 1;">
+                                        <tr>
+                                            <th>Code</th>
+                                            <th>Title</th>
+                                            <th style="text-align: center;">Units</th>
+                                            <th style="text-align: center;">Grade</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:if="${#lists.isEmpty(academicLoad)}"><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">No subjects enlisted yet.</td></tr>
+                                        <tr th:each="subj : ${academicLoad}">
+                                            <td style="font-weight: 600; font-size: 0.85rem;" th:text="${subj.COURSE_CODE}"></td>
+                                            <td style="font-size: 0.85rem; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" th:title="${subj.COURSE_TITLE}" th:text="${subj.COURSE_TITLE}"></td>
+                                            <td style="text-align: center; font-size: 0.85rem;" th:text="${subj.CREDIT_UNITS}"></td>
+                                            <td style="text-align: center; font-weight: 700; color: var(--primary-color);" th:text="${subj.GRADE != null ? subj.GRADE : '---'}"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Empty state -->
+            <div th:if="${student == null and keyword != null}" style="text-align: center; padding: 5rem 2rem; color: var(--text-muted);">
+                <i class="ti ti-user-x" style="font-size: 4rem; opacity: 0.5; display: block; margin-bottom: 1rem; color: #DC2626;"></i>
+                <h4 style="color: var(--text-primary); font-weight: 600;">Student Not Found</h4>
+                <p>Please verify the ID or name.</p>
+            </div>
+            
+            <div th:if="${keyword == null}" style="text-align: center; padding: 5rem 2rem; color: var(--text-muted);">
+                <i class="ti ti-receipt-2" style="font-size: 4rem; opacity: 0.5; display: block; margin-bottom: 1rem;"></i>
+                <h4 style="color: var(--text-primary); font-weight: 600;">Ledger Ready</h4>
+                <p>Enter a student number or last name above to view their financial ledger.</p>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<script th:attr="nonce=${cspNonce}">
+    function filterPayments() {
+        const type = document.getElementById('filterType').value.toUpperCase();
+        const date = document.getElementById('filterDate').value;
+        document.querySelectorAll('.payment-row').forEach(row => {
+            const rowType = (row.dataset.type || '').toUpperCase();
+            const rowDate = row.dataset.date || '';
+            const typeOk = type === 'ALL' || rowType.includes(type);
+            const dateOk = !date || rowDate === date;
+            row.style.display = (typeOk && dateOk) ? '' : 'none';
+        });
+    }
+    function resetFilters() {
+        document.getElementById('filterType').value = 'ALL';
+        document.getElementById('filterDate').value = '';
+        filterPayments();
+    }
+</script>
+
+<style th:attr="nonce=${cspNonce}">
+    .ledger-search-form {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-end;
+    }
+
+    .ledger-layout {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr;
+        gap: 1.5rem;
+        align-items: start;
+    }
+
+    .ledger-column {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        min-width: 0;
+    }
+
+    .ledger-filter-bar {
+        background: var(--bg-tertiary);
+        padding: 1rem;
+        border-radius: var(--radius-md);
+        margin: 0 1.5rem 1rem 1.5rem;
+        display: flex;
+        gap: 1rem;
+        align-items: flex-end;
+        flex-wrap: wrap;
+    }
+
+    .ledger-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        padding: 1.5rem;
+    }
+
+    @media (max-width: 920px) {
+        .ledger-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .ledger-column {
+            order: initial;
+        }
+
+        .ledger-search-form {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .ledger-filter-bar {
+            margin: 0 1rem 1rem 1rem;
+            align-items: stretch;
+        }
+
+        .ledger-filter-bar > div {
+            width: 100%;
+        }
+    }
+
+    @media (max-width: 720px) {
+        .ledger-summary-grid {
+            grid-template-columns: 1fr;
+            padding: 1rem;
+            gap: 1rem;
+        }
+
+        .ledger-search-form {
+            gap: 0.75rem;
+        }
+
+        .ledger-filter-bar {
+            margin: 0 1rem 1rem 1rem;
+            padding: 0.9rem;
+        }
+    }
+</style>
+
+</body>
+</html>

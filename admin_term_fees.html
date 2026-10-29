@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head}"></head>
+<body>
+<div class="app">
+    <div th:replace="~{fragments/layout :: topbar}"></div>
+    <style th:attr="nonce=${cspNonce}">
+        .term-fee-scope-form {
+            display: grid;
+            grid-template-columns: minmax(220px, 320px) minmax(320px, 1fr) minmax(120px, 150px) minmax(140px, 170px) auto;
+            gap: 1rem;
+            align-items: end;
+            margin-bottom: 1.5rem;
+        }
+        .term-fee-scope-form .form-group {
+            margin: 0;
+        }
+        .term-fee-scope-form .form-control {
+            width: 100%;
+            height: 38px;
+            line-height: 1.4;
+            font-family: inherit;
+            font-size: 13px;
+        }
+        .term-fee-scope-form .btn {
+            min-height: 38px;
+            padding: .55rem 1rem;
+            white-space: nowrap;
+        }
+        @media (max-width: 980px) {
+            .term-fee-scope-form {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        @media (max-width: 640px) {
+            .term-fee-scope-form {
+                grid-template-columns: 1fr;
+            }
+            .term-fee-scope-form .btn {
+                width: 100%;
+            }
+        }
+    </style>
+    <div class="body-wrapper">
+        <nav th:replace="~{fragments/layout :: sidebar(activeLink='term-fees')}"></nav>
+
+        <main class="main" role="main" id="main-content">
+            <div class="breadcrumb" aria-label="Breadcrumb">
+                <i class="ti ti-home" aria-hidden="true"></i>
+                <i class="ti ti-chevron-right" aria-hidden="true"></i>
+                <span>Admin</span>
+                <i class="ti ti-chevron-right" aria-hidden="true"></i>
+                <span>Program Fee Readiness</span>
+            </div>
+
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">Program Fee Readiness</h1>
+                    <p class="page-subtitle" style="margin-top:0.35rem;">Registrar inspects exact canonical fee rows here only. Fee authoring has been retired from Registrar and stays in Enrollment3 Accounting/Cashier.</p>
+                    <p class="page-subtitle">Official fee rates per academic term, program, year level, and curriculum slot — authored by Enrollment3, stored in <span style="font-family: monospace;">program_fee_settings</span>, and read by Registrar for readiness and display.</p>
+                </div>
+            </div>
+
+            <div th:if="${feeOwnershipReadOnly}" class="status-badge pending" style="margin-bottom: 1rem; display: inline-flex;">
+                <div class="status-dot"></div>
+                <span th:text="${feeOwnershipNotice}">Program fee authoring is read-only in Registrar.</span>
+            </div>
+
+            <!-- Flash messages -->
+            <div th:if="${param.success}" class="status-badge enrolled" style="margin-bottom: 1rem; display: inline-flex;">
+                <div class="status-dot"></div> Fees saved.
+                <span th:if="${param.saved}" th:text="${' Updated: ' + param.saved[0] + '.'}"></span>
+            </div>
+            <div th:if="${param.imported}" class="status-badge enrolled" style="margin-bottom: 1rem; display: inline-flex;">
+                <div class="status-dot"></div>
+                <span th:text="${param.importMode != null and param.importMode[0] == 'scope' ? 'Scoped import complete.' : 'Global import complete.'}">Import complete.</span>
+                <span th:if="${param.importCoreCreated}" th:text="${' Created: ' + param.importCoreCreated[0] + '.'}"></span>
+                <span th:if="${param.importCoreUpdated}" th:text="${' Updated: ' + param.importCoreUpdated[0] + '.'}"></span>
+                <span th:if="${param.importSkipped != null and param.importSkipped[0] != '0'}" th:text="${' Skipped (no source): ' + param.importSkipped[0] + '.'}"></span>
+            </div>
+            <div th:if="${param.importCsv}" class="status-badge enrolled" style="margin-bottom: 1rem; display: inline-flex;">
+                <div class="status-dot"></div> CSV import complete.
+                <span th:if="${param.csvRowsImported}" th:text="${' Rows: ' + param.csvRowsImported[0] + '.'}"></span>
+                <span th:if="${param.csvFirstError}" th:text="${' Issue: ' + param.csvFirstError[0]}"></span>
+            </div>
+            <div th:if="${param.importCsvError}" class="status-badge inactive" style="margin-bottom: 1rem; display: inline-flex;">
+                <div class="status-dot"></div>
+                <span th:text="${param.importCsvError[0]}"></span>
+            </div>
+            <div th:if="${missingTables != null and !missingTables.isEmpty()}" class="status-badge pending" style="margin-bottom: 1rem; display: inline-flex;">
+                <div class="status-dot"></div>
+                <b>Missing tables:</b> <span th:text="${missingTables}"></span>.
+                Run bootstrap or <span style="font-family: monospace;">schema_migration_001.sql</span>.
+            </div>
+
+            <!-- Readiness -->
+            <div class="card" style="margin-bottom: 1.5rem;" th:if="${termReadiness != null and termId != null}">
+                <div class="card-header">
+                    <div class="card-title"><i class="ti ti-clipboard-check"></i> Term readiness</div>
+                </div>
+                <div style="padding: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <div style="font-weight: 700; font-size: 1.05rem;" th:text="${termReadiness.get('termLabel')}"></div>
+                            <div style="color: var(--text-muted); font-size: 0.9rem;" th:text="${termReadiness.get('statusText')}"></div>
+                        </div>
+                        <div class="status-badge" th:classappend="${termReadiness.get('ready')} ? 'enrolled' : 'pending'">
+                            <div class="status-dot"></div>
+                            <span th:text="${termReadiness.get('ready')} ? 'Ready' : 'Needs work'"></span>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem;">
+                        <div style="background: var(--bg-tertiary); border-radius: 10px; padding: 0.85rem;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Missing</div>
+                            <div style="font-size: 1.3rem; font-weight: 700; color: var(--danger-color);" th:text="${termReadiness.get('missingFeeScopeCount')}">0</div>
+                        </div>
+                        <div style="background: var(--bg-tertiary); border-radius: 10px; padding: 0.85rem;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Exact rows ready</div>
+                            <div style="font-size: 1.3rem; font-weight: 700; color: var(--success-color);" th:text="${termReadiness.get('readyFeeScopeCount')}">0</div>
+                        </div>
+                        <div style="background: var(--bg-tertiary); border-radius: 10px; padding: 0.85rem;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Incomplete</div>
+                            <div style="font-size: 1.3rem; font-weight: 700; color: var(--warning-color);" th:text="${termReadiness.get('incompleteFeeScopeCount')}">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- READ-ONLY TERM SNAPSHOT -->
+            <div class="card" style="margin-bottom: 1.5rem;">
+                <div class="card-header">
+                    <div class="card-title"><i class="ti ti-world-upload"></i> 1. Read-only term snapshot</div>
+                </div>
+                <div style="padding: 1.5rem;">
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+                        Registrar no longer imports, uploads, or edits fee rows here. This section only exposes the canonical fee mirror and readiness status.
+                    </p>
+
+                    <form th:if="${!feeOwnershipReadOnly}" th:action="@{/admin/term-fees/import-global}" method="post"
+                           style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; margin-bottom: 1.5rem;">
+                        <div class="form-group" style="margin: 0; min-width: 200px;">
+                            <label>Target term</label>
+                            <select name="targetTermId" required>
+                                <option th:each="t : ${terms}" th:value="${t.term_id}"
+                                        th:selected="${termId != null and t.term_id == termId}"
+                                        th:text="${t.term_name != null ? t.term_name : t.term_code}"></option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin: 0; min-width: 200px;">
+                            <label>Copy from term</label>
+                            <select name="sourceTermId" required>
+                                <option th:each="t : ${terms}" th:value="${t.term_id}"
+                                        th:selected="${previousTermId != null and t.term_id == previousTermId}"
+                                        th:text="${t.term_name != null ? t.term_name : t.term_code}"></option>
+                            </select>
+                        </div>
+                        <input type="hidden" name="programCode" th:value="${programCode}">
+                        <input type="hidden" name="yearLevel" th:value="${yearLevel}">
+                        <input type="hidden" name="semester" th:value="${semester}">
+                        <button class="btn btn-primary" type="submit" th:disabled="${missingTables != null and !missingTables.isEmpty()}">
+                            <i class="ti ti-download"></i> Import all programs
+                        </button>
+                    </form>
+
+                    <div th:if="${sourceTermReadiness != null and !sourceTermReadiness.isEmpty()}"
+                         style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+                        Source term status:
+                        <span th:text="${sourceTermReadiness.get('ready')} ? 'Ready' : 'Not fully ready'"></span>
+                        — use only if prior-term fees are official.
+                    </div>
+
+                    <div th:if="${feeOwnershipReadOnly}" class="status-badge pending" style="margin: 0.75rem 0 1rem; display: inline-flex;">
+                        <div class="status-dot"></div>
+                        <span>Registrar fee configuration is retired. Canonical fee rows are read only from Enrollment3-owned shared data and this page no longer authors fees.</span>
+                    </div>
+
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
+                        <a class="btn btn-outline" th:href="@{/admin/term-fees/import-template(termId=${termId})}">
+                            <i class="ti ti-table-plus"></i> Download CSV template
+                        </a>
+                        <a class="btn btn-ghost" th:href="@{/admin/term-fees/readiness-export(termId=${termId})}">
+                            <i class="ti ti-file-download"></i> Export gap list
+                        </a>
+                    </div>
+
+                    <form th:if="${!feeOwnershipReadOnly}" th:action="@{/admin/term-fees/import-template}" method="post" enctype="multipart/form-data"
+                          style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                        <input type="hidden" name="termId" th:value="${termId}">
+                        <input type="hidden" name="programCode" th:value="${programCode}">
+                        <input type="hidden" name="yearLevel" th:value="${yearLevel}">
+                        <input type="hidden" name="semester" th:value="${semester}">
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 220px;">
+                            <label>Or upload completed CSV</label>
+                            <input type="file" name="file" accept=".csv,text/csv" required>
+                        </div>
+                        <button class="btn btn-primary" type="submit" th:disabled="${termId == null}">
+                            <i class="ti ti-upload"></i> Upload CSV
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- READ-ONLY SCOPE INSPECTION -->
+            <div class="card" style="margin-bottom: 1.5rem;">
+                <div class="card-header">
+                    <div class="card-title"><i class="ti ti-adjustments"></i> 2. Read-only scope inspection (one program)</div>
+                </div>
+                <div style="padding: 1.5rem;">
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+                        <b>Curriculum slot</b> (S1/S2) is the year-level progression semester — not the calendar 1st/2nd sem label on the term name.
+                    </p>
+
+                    <form th:action="@{/admin/term-fees}" method="get" class="term-fee-scope-form">
+                        <div class="form-group">
+                            <label class="form-label">Academic term</label>
+                            <select name="termId" class="form-control" required>
+                                <option th:each="t : ${terms}" th:value="${t.term_id}"
+                                        th:selected="${termId != null and t.term_id == termId}"
+                                        th:text="${t.term_name != null ? t.term_name : t.term_code}"></option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Program</label>
+                            <select name="programCode" class="form-control" required>
+                                <option th:each="p : ${programs}" th:value="${p.program_code}"
+                                        th:selected="${programCode != null and p.program_code == programCode}"
+                                        th:text="${p.program_code + ' — ' + (p.program_name != null ? p.program_name : '')}"></option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Year level</label>
+                            <select name="yearLevel" class="form-control">
+                                <option th:each="yl : ${#numbers.sequence(1, 4)}" th:value="${yl}"
+                                        th:selected="${yearLevel == yl}" th:text="${'Y' + yl}"></option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Curriculum slot</label>
+                            <select name="semester" class="form-control">
+                                <option value="1" th:selected="${semester == 1}">S1</option>
+                                <option value="2" th:selected="${semester == 2}">S2</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" type="submit"><i class="ti ti-search"></i> Load</button>
+                    </form>
+
+                    <div th:if="${missingFeeCodes != null and !missingFeeCodes.isEmpty()}" class="status-badge inactive" style="margin-bottom: 1rem; display: inline-flex;">
+                        <div class="status-dot"></div> No exact canonical rates for this scope yet.
+                    </div>
+
+                    <div th:if="${feeTypes != null and !feeTypes.isEmpty()}">
+                        <table class="table-eac">
+                            <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Name</th>
+                                <th>Kind</th>
+                                <th>Source</th>
+                                <th style="text-align: right; width: 160px;">Amount (₱)</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="ft : ${feeTypes}">
+                                <td><code th:text="${ft.fee_code}"></code></td>
+                                <td th:text="${ft.fee_name}"></td>
+                                <td style="font-size: 0.85rem; color: var(--text-muted);"
+                                    th:text="${ft.kind + (ft.unit_basis != null ? ' (' + ft.unit_basis + ')' : '')}"></td>
+                                <td>
+                                    <span th:if="${rateSources != null and rateSources.get(ft.fee_code) == 'EXACT_TERM'}" class="status-badge enrolled" style="display:inline-flex;"><div class="status-dot"></div>Exact</span>
+                                    <span th:if="${rateSources == null or !rateSources.containsKey(ft.fee_code)}" class="status-badge inactive" style="display:inline-flex;"><div class="status-dot"></div>Missing</span>
+                                </td>
+                                <td style="text-align: right; font-family: monospace;">
+                                    <span th:text="${currentRates != null and currentRates.containsKey(ft.fee_code) ? '₱' + currentRates.get(ft.fee_code) : '—'}"></span>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Unresolved queue -->
+            <div class="card" th:if="${unresolvedScopes != null and !unresolvedScopes.isEmpty()}">
+                <div class="card-header">
+                    <div class="card-title"><i class="ti ti-list-search"></i> Gaps to fix</div>
+                </div>
+                <div style="padding: 1.5rem;">
+                    <table class="table-eac">
+                        <thead>
+                        <tr><th>Program</th><th>Year</th><th>Slot</th><th>Status</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="scope : ${unresolvedScopes}">
+                            <td th:text="${scope.programCode}"></td>
+                            <td th:text="${'Y' + scope.yearLevel}"></td>
+                            <td th:text="${'S' + scope.semester}"></td>
+                            <td th:text="${scope.status}"></td>
+                            <td style="text-align: right;"><a class="btn btn-ghost" th:href="${scope.loadUrl}">Open</a></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+</body>
+</html>

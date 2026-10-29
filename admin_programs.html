@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <title>Program Builder - EAC Registrar</title>
+    <th:block th:replace="~{fragments/layout :: head}"></th:block>
+    <style th:attr="nonce=${cspNonce}">
+        .catalog-header { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem; }
+        .catalog-actions { display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; }
+        .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+        .stat-card { background:white; border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:1rem 1.25rem; box-shadow:var(--shadow-sm); }
+        .stat-value { font-size:1.8rem; font-weight:800; color:var(--text-primary); line-height:1.1; }
+        .stat-label { color:var(--text-muted); font-size:.78rem; font-weight:700; letter-spacing:.04em; margin-top:.35rem; text-transform:uppercase; }
+        .filter-card { background:white; border:1px solid var(--border-color); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); padding:1rem; margin-bottom:1.5rem; }
+        .filter-row { display:flex; gap:.8rem; align-items:flex-end; flex-wrap:wrap; }
+        .filter-row > div { min-width:180px; }
+        .filter-row .grow { flex:1; min-width:240px; }
+        .program-code { color:var(--primary-color); font-weight:800; }
+        .usage-stack { display:flex; flex-wrap:wrap; gap:.35rem; }
+        .usage-chip { display:inline-flex; align-items:center; gap:.25rem; border-radius:999px; border:1px solid var(--border-color); background:var(--bg-tertiary); color:var(--text-secondary); font-size:.74rem; font-weight:700; padding:.18rem .5rem; }
+        .usage-chip.warn { border-color:rgba(217,119,6,.25); background:rgba(217,119,6,.08); color:#b45309; }
+        .row-actions { display:flex; gap:.35rem; justify-content:flex-end; flex-wrap:wrap; }
+        .pager { display:flex; justify-content:space-between; align-items:center; gap:.75rem; flex-wrap:wrap; padding:1rem 1.25rem; border-top:1px solid var(--border-color); color:var(--text-muted); font-size:.86rem; }
+        .pager-links { display:flex; gap:.5rem; align-items:center; }
+        .pager-disabled { opacity:.45; pointer-events:none; }
+        .modal { display:none; position:fixed; z-index:1050; inset:0; background:rgba(0,0,0,.48); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:1rem; }
+        .modal.show { display:flex; }
+        .modal-dialog { width:min(680px,100%); max-height:92vh; overflow-y:auto; background:white; border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); }
+        .modal-header, .modal-footer { padding:1.25rem 1.5rem; border-bottom:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+        .modal-footer { border-top:1px solid var(--border-color); border-bottom:0; justify-content:flex-end; }
+        .modal-body { padding:1.5rem; }
+        .form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
+        .form-grid .wide { grid-column:1 / -1; }
+        .hint-box { margin-top:1rem; color:var(--text-muted); background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:.75rem .9rem; font-size:.86rem; }
+        .usage-section { margin-bottom:1.25rem; }
+        .usage-section h4 { margin:0 0 .55rem; font-size:.95rem; }
+        .usage-list { display:grid; gap:.45rem; }
+        .usage-item { border:1px solid var(--border-color); border-radius:var(--radius-md); padding:.65rem .75rem; background:var(--bg-tertiary); }
+        .usage-empty { color:var(--text-muted); font-size:.86rem; }
+        .readonly-field { background:var(--bg-tertiary); color:var(--text-muted); }
+        @media (max-width:760px) { .form-grid { grid-template-columns:1fr; } .row-actions { justify-content:flex-start; } }
+    </style>
+</head>
+<body>
+<div class="app">
+    <th:block th:replace="~{fragments/layout :: topbar}"></th:block>
+    <div class="body-wrapper">
+        <th:block th:replace="~{fragments/layout :: sidebar('programs')}"></th:block>
+        <main class="main" role="main">
+            <div th:if="${successMsg}" class="alert alert-success" style="margin-bottom:1.5rem;"><i class="ti ti-check" aria-hidden="true"></i> <span th:text="${successMsg}"></span></div>
+            <div th:if="${errorMsg}" class="alert alert-danger" style="margin-bottom:1.5rem;"><i class="ti ti-alert-triangle" aria-hidden="true"></i> <span th:text="${errorMsg}"></span></div>
+
+            <div class="breadcrumb" aria-label="Breadcrumb">
+                <i class="ti ti-home" aria-hidden="true"></i><i class="ti ti-chevron-right" aria-hidden="true"></i>
+                <span>Academics</span><i class="ti ti-chevron-right" aria-hidden="true"></i><span>Program Builder</span>
+            </div>
+
+            <div class="catalog-header">
+                <div>
+                    <h1 class="page-title">Program Builder</h1>
+                    <p class="page-subtitle">Core program records used by Admissions, curriculum, and scheduling. Separate from curriculum mapping.</p>
+                </div>
+                <div class="catalog-actions">
+                    <a th:href="@{/admin/curriculum}" class="btn btn-outline"><i class="ti ti-book" aria-hidden="true"></i> Curriculum</a>
+                    <a th:href="@{/admin/courses}" class="btn btn-outline"><i class="ti ti-books" aria-hidden="true"></i> Course Catalog</a>
+                    <button th:if="${canManagePrograms}" type="button" class="btn btn-primary" onclick="openProgramModal()"><i class="ti ti-plus" aria-hidden="true"></i> New Program</button>
+                </div>
+            </div>
+
+            <div th:if="${!canManagePrograms}" class="hint-box" style="margin-bottom:1.5rem;">
+                Program create/edit is restricted to administrators. Curriculum staff may view active programs here but must not alter the core program file.
+            </div>
+
+            <div class="stats-grid" th:if="${filtersApplied}">
+                <div class="stat-card"><div class="stat-value" th:text="${summary.total}">0</div><div class="stat-label">Programs Shown</div></div>
+                <div class="stat-card"><div class="stat-value" th:text="${summary.active}">0</div><div class="stat-label">Active</div></div>
+                <div class="stat-card"><div class="stat-value" th:text="${summary.inactive}">0</div><div class="stat-label">Inactive</div></div>
+                <div class="stat-card"><div class="stat-value" th:text="${summary.used}">0</div><div class="stat-label">Used Somewhere</div></div>
+            </div>
+
+            <div class="filter-card">
+                <form th:action="@{/admin/programs}" method="get" class="filter-row">
+                    <input type="hidden" name="page" value="1">
+                    <div class="grow"><label class="form-label">Search</label><input name="search" class="form-control" th:value="${search}" placeholder="Code or name"></div>
+                    <div><label class="form-label">Department</label>
+                        <select name="departmentId" class="form-control">
+                            <option value="">All departments</option>
+                            <option th:each="d : ${departments}" th:value="${d.department_id}" th:text="${d.department_name}" th:selected="${d.department_id == selectedDepartmentId}">Department</option>
+                        </select>
+                    </div>
+                    <div><label class="form-label">Status</label>
+                        <select name="status" class="form-control">
+                            <option value="active" th:selected="${selectedStatus == null or selectedStatus == 'active'}">Active</option>
+                            <option value="inactive" th:selected="${selectedStatus == 'inactive'}">Inactive</option>
+                            <option value="all" th:selected="${selectedStatus == 'all'}">All</option>
+                        </select>
+                    </div>
+                    <div><label class="form-label">Rows</label>
+                        <select name="size" class="form-control">
+                            <option value="25" th:selected="${pageSize == 25}">25</option>
+                            <option value="50" th:selected="${pageSize == 50}">50</option>
+                            <option value="100" th:selected="${pageSize == 100}">100</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary"><i class="ti ti-filter" aria-hidden="true"></i> Apply</button>
+                    <a th:href="@{/admin/programs}" class="btn btn-outline">Reset</a>
+                </form>
+            </div>
+
+            <div class="card" style="padding:0; overflow:hidden;" th:if="${filtersApplied}">
+                <div style="overflow-x:auto;">
+                    <table class="table-eac" style="margin:0;">
+                        <thead>
+                        <tr>
+                            <th style="padding-left:1.25rem;">Code</th>
+                            <th>Name</th>
+                            <th>Department</th>
+                            <th style="text-align:center;">Duration</th>
+                            <th style="text-align:center;">Status</th>
+                            <th>Usage</th>
+                            <th style="text-align:right; padding-right:1.25rem;">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="p : ${programs}" th:id="'program-' + ${p.program_id}">
+                            <td style="padding-left:1.25rem;"><span class="program-code" th:text="${p.program_code}">CODE</span></td>
+                            <td th:text="${p.program_name}">Name</td>
+                            <td style="color:var(--text-muted); font-size:.86rem;" th:text="${p.department_name}">Department</td>
+                            <td style="text-align:center;"><span th:text="${p.duration_years} + ' yrs'">4 yrs</span></td>
+                            <td style="text-align:center;">
+                                <span class="status-badge" th:classappend="${p.active_status == 1} ? 'enrolled' : 'inactive'" th:text="${p.active_status == 1} ? 'Active' : 'Inactive'">Active</span>
+                            </td>
+                            <td>
+                                <div class="usage-stack">
+                                    <span class="usage-chip" th:classappend="${p.curriculum_usage > 0} ? 'warn' : ''"><i class="ti ti-book" aria-hidden="true"></i> <span th:text="${p.curriculum_usage} + ' curriculum'">0</span></span>
+                                    <span class="usage-chip" th:classappend="${p.assignment_usage > 0} ? 'warn' : ''"><i class="ti ti-users" aria-hidden="true"></i> <span th:text="${p.assignment_usage} + ' assignment'">0</span></span>
+                                </div>
+                            </td>
+                            <td style="padding-right:1.25rem;">
+                                <div class="row-actions">
+                                    <button type="button" class="btn btn-outline" style="padding:.3rem .55rem;" th:attr="data-program-id=${p.program_id},data-usage-url=@{/admin/programs/usage}" onclick="openUsageModal(this)"><i class="ti ti-map-pin" aria-hidden="true"></i></button>
+                                    <button th:if="${canManagePrograms}" type="button" class="btn btn-outline" style="padding:.3rem .55rem;"
+                                            th:attr="data-program-id=${p.program_id},data-program-code=${p.program_code},data-program-name=${p.program_name},data-department-id=${p.department_id},data-school-name=${p.school_name},data-duration-years=${p.duration_years},data-active=${p.active_status}"
+                                            onclick="openProgramModal(this)"><i class="ti ti-pencil" aria-hidden="true"></i></button>
+                                    <form th:if="${canManagePrograms}" th:action="@{/admin/programs/status}" method="post" style="margin:0;">
+                                        <input type="hidden" name="programId" th:value="${p.program_id}">
+                                        <input type="hidden" name="active" th:value="${p.active_status == 1 ? false : true}">
+                                        <input type="hidden" name="returnSearch" th:value="${search}">
+                                        <input type="hidden" name="returnDepartmentId" th:value="${selectedDepartmentId}">
+                                        <input type="hidden" name="returnStatus" th:value="${selectedStatus}">
+                                        <input type="hidden" name="returnPage" th:value="${page}">
+                                        <input type="hidden" name="returnSize" th:value="${pageSize}">
+                                        <button type="submit" class="btn btn-outline" style="padding:.3rem .55rem;"
+                                                th:data-confirm="${p.active_status == 1} ? 'Deactivate this program? It will disappear from Admissions active lists.' : null"
+                                                th:data-confirm-title="${p.active_status == 1} ? 'Deactivate program?' : null"
+                                                th:data-confirm-tone="${p.active_status == 1} ? 'warning' : null">
+                                            <i class="ti" th:classappend="${p.active_status == 1} ? 'ti-eye-off' : 'ti-eye'" aria-hidden="true"></i>
+                                        </button>
+                                    </form>
+                                    <form th:if="${canManagePrograms and p.usage_count == 0}" th:action="@{/admin/programs/delete-unused}" method="post" style="margin:0;">
+                                        <input type="hidden" name="programId" th:value="${p.program_id}">
+                                        <input type="hidden" name="returnSearch" th:value="${search}">
+                                        <input type="hidden" name="returnDepartmentId" th:value="${selectedDepartmentId}">
+                                        <input type="hidden" name="returnStatus" th:value="${selectedStatus}">
+                                        <input type="hidden" name="returnPage" th:value="${page}">
+                                        <input type="hidden" name="returnSize" th:value="${pageSize}">
+                                        <button type="submit" class="btn btn-outline" style="padding:.3rem .55rem;" data-confirm="Delete this unused program?" data-confirm-title="Delete program?" data-confirm-tone="danger"><i class="ti ti-trash" aria-hidden="true"></i></button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(programs)}">
+                            <td colspan="7" style="text-align:center; color:var(--text-muted); padding:3rem;">No programs found for the selected filters.</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pager" th:if="${totalRows > 0}">
+                    <span th:text="|Showing ${pageStart}-${pageEnd} of ${totalRows} programs|">Showing 1-50 of 50 programs</span>
+                    <div class="pager-links">
+                        <a class="btn btn-outline" th:classappend="${page == 1} ? 'pager-disabled'"
+                           th:href="@{/admin/programs(search=${search},departmentId=${selectedDepartmentId},status=${selectedStatus},page=${page - 1},size=${pageSize})}">Previous</a>
+                        <span th:text="|Page ${page} of ${totalPages}|">Page 1 of 1</span>
+                        <a class="btn btn-outline" th:classappend="${page >= totalPages} ? 'pager-disabled'"
+                           th:href="@{/admin/programs(search=${search},departmentId=${selectedDepartmentId},status=${selectedStatus},page=${page + 1},size=${pageSize})}">Next</a>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<div class="modal" id="programModal" aria-hidden="true">
+    <div class="modal-dialog">
+        <form th:action="@{/admin/programs/save}" method="post" id="programForm">
+            <div class="modal-header">
+                <div><h3 id="programModalTitle" style="margin:0;">New Program</h3><p style="margin:.25rem 0 0; color:var(--text-muted); font-size:.88rem;">Program codes lock after the first save.</p></div>
+                <button type="button" class="btn btn-outline" style="padding:.3rem .6rem;" onclick="closeProgramModal()">Close</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="programId" id="programId">
+                <input type="hidden" name="returnSearch" th:value="${search}">
+                <input type="hidden" name="returnDepartmentId" th:value="${selectedDepartmentId}">
+                <input type="hidden" name="returnStatus" th:value="${selectedStatus}">
+                <input type="hidden" name="returnPage" th:value="${page}">
+                <input type="hidden" name="returnSize" th:value="${pageSize}">
+                <div class="form-grid">
+                    <div><label class="form-label">Program Code</label><input name="programCode" id="programCode" class="form-control" required placeholder="BSIT"></div>
+                    <div><label class="form-label">Duration (years)</label><input name="durationYears" id="durationYears" type="number" min="1" max="12" class="form-control" value="4" required></div>
+                    <div class="wide"><label class="form-label">Program Name</label><input name="programName" id="programName" class="form-control" required placeholder="Bachelor of Science in Information Technology"></div>
+                    <div><label class="form-label">Department</label>
+                        <select name="departmentId" id="departmentId" class="form-control" required>
+                            <option value="">Select department</option>
+                            <option th:each="d : ${departments}" th:value="${d.department_id}" th:text="${d.department_name}">Department</option>
+                        </select>
+                    </div>
+                    <div><label class="form-label">School Name</label><input name="schoolName" id="schoolName" class="form-control" value="Emilio Aguinaldo College"></div>
+                    <div><label class="form-label">Status</label>
+                        <select name="active" id="active" class="form-control"><option value="true">Active</option><option value="false">Inactive</option></select>
+                    </div>
+                </div>
+                <div class="hint-box">Active programs appear in Admissions and curriculum pickers. Registrar currently saves Program Builder entries as college-level shared programs for Admission compatibility. Curriculum mapping is managed separately under Curriculum.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeProgramModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary"><i class="ti ti-device-floppy" aria-hidden="true"></i> Save Program</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal" id="usageModal" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <div><h3 id="usageModalTitle" style="margin:0;">Program Usage</h3><p id="usageModalSubtitle" style="margin:.25rem 0 0; color:var(--text-muted); font-size:.88rem;"></p></div>
+            <button type="button" class="btn btn-outline" onclick="closeUsageModal()">Close</button>
+        </div>
+        <div class="modal-body" id="usageModalBody"><div class="usage-empty">Loading usage...</div></div>
+    </div>
+</div>
+
+<script th:attr="nonce=${cspNonce}">
+    function openProgramModal(button) {
+        const modal = document.getElementById('programModal');
+        const form = document.getElementById('programForm');
+        const codeInput = document.getElementById('programCode');
+        form.reset();
+        document.getElementById('programId').value = '';
+        document.getElementById('programModalTitle').textContent = 'New Program';
+        document.getElementById('active').value = 'true';
+        document.getElementById('schoolName').value = 'Emilio Aguinaldo College';
+        document.getElementById('durationYears').value = '4';
+        codeInput.readOnly = false;
+        codeInput.classList.remove('readonly-field');
+
+        if (button && button.dataset) {
+            document.getElementById('programModalTitle').textContent = 'Edit Program';
+            document.getElementById('programId').value = button.dataset.programId || '';
+            codeInput.value = button.dataset.programCode || '';
+            codeInput.readOnly = true;
+            codeInput.classList.add('readonly-field');
+            document.getElementById('programName').value = button.dataset.programName || '';
+            document.getElementById('departmentId').value = button.dataset.departmentId || '';
+            document.getElementById('schoolName').value = button.dataset.schoolName || 'Emilio Aguinaldo College';
+            document.getElementById('durationYears').value = button.dataset.durationYears || 4;
+            document.getElementById('active').value = button.dataset.active === '0' ? 'false' : 'true';
+        }
+        modal.classList.add('show');
+        modal.setAttribute('aria-hidden', 'false');
+        if (!codeInput.readOnly) codeInput.focus();
+    }
+    function closeProgramModal() {
+        const modal = document.getElementById('programModal');
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+    }
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>\"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[char]));
+    }
+    function renderUsageItems(items, formatter, emptyText) {
+        if (!items || items.length === 0) return `<div class="usage-empty">${escapeHtml(emptyText)}</div>`;
+        return `<div class="usage-list">${items.map(item => `<div class="usage-item">${formatter(item)}</div>`).join('')}</div>`;
+    }
+    async function openUsageModal(button) {
+        const modal = document.getElementById('usageModal');
+        const body = document.getElementById('usageModalBody');
+        modal.classList.add('show');
+        modal.setAttribute('aria-hidden', 'false');
+        body.innerHTML = '<div class="usage-empty">Loading usage...</div>';
+        try {
+            const response = await fetch(`${button.dataset.usageUrl}?programId=${encodeURIComponent(button.dataset.programId)}`);
+            if (!response.ok) throw new Error(await response.text() || 'Unable to load program usage.');
+            const data = await response.json();
+            const program = data.program || {};
+            document.getElementById('usageModalTitle').textContent = `${program.program_code || ''} - ${program.program_name || ''}`;
+            document.getElementById('usageModalSubtitle').textContent = `${program.duration_years || 0} years | ${program.department_name || 'Unassigned'} | ${program.active_status == 1 ? 'Active' : 'Inactive'}`;
+            body.innerHTML = `
+                <section class="usage-section"><h4>Curriculum versions</h4>${renderUsageItems(data.curricula, item => `<strong>${escapeHtml(item.curriculum_name)}</strong><br><small>A.Y. ${escapeHtml(item.academic_year)} | v${escapeHtml(item.version_number)} | ${escapeHtml(item.approval_status)}${Number(item.is_active) === 1 ? ' | Active' : ''}</small>`, 'No curriculum versions linked.')}</section>
+                <section class="usage-section"><h4>Student curriculum assignments</h4>${renderUsageItems(data.assignments, item => `<strong>${escapeHtml(item.student_number)}</strong><br><small>${escapeHtml(item.assignment_type || 'Assignment')}${Number(item.is_current) === 1 ? ' | Current' : ''}</small>`, 'No student assignments linked.')}</section>`;
+        } catch (error) {
+            body.innerHTML = `<div class="alert alert-danger">${escapeHtml(error.message)}</div>`;
+        }
+    }
+    function closeUsageModal() {
+        document.getElementById('usageModal').classList.remove('show');
+        document.getElementById('usageModal').setAttribute('aria-hidden', 'true');
+    }
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeProgramModal(); closeUsageModal(); } });
+</script>
+</body>
+</html>

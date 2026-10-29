@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head}"></head>
+<body>
+<script th:attr="nonce=${cspNonce}" th:inline="javascript">const contextPath = /*[[@{/}]]*/ '';</script>
+<style th:attr="nonce=${cspNonce}">
+    .approvals-page-header { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:1rem; margin-bottom:2rem; }
+    .approvals-header-actions { display:flex; gap:0.75rem; flex-wrap:wrap; }
+    .approvals-table-wrap { overflow-x:auto; border:1px solid var(--border-color); border-radius:var(--radius-md); }
+    .approvals-action-stack { display:flex; justify-content:flex-end; gap:0.5rem; flex-wrap:wrap; }
+    @media (max-width: 900px) {
+        .approvals-page-header { align-items:flex-start; }
+        .approvals-header-actions { width:100%; }
+        .approvals-header-actions .btn { width:100%; justify-content:center; }
+        .approvals-table-wrap { border-radius: var(--radius-lg); }
+        .approvals-table-wrap table { min-width: 980px; }
+    }
+    @media (max-width: 760px) {
+        .approvals-action-stack { flex-direction:column; align-items:stretch; }
+        .approvals-action-stack .btn,
+        .approvals-action-stack summary { width:100%; justify-content:center; }
+        .approvals-table-wrap table { min-width: 860px; }
+        .approvals-table-wrap td, .approvals-table-wrap th { white-space: nowrap; }
+    }
+</style>
+<div class="app">
+    <div th:replace="~{fragments/layout :: topbar}"></div>
+    
+    <div class="body-wrapper">
+        <nav th:replace="~{fragments/layout :: sidebar(activeLink='approvals')}"></nav>
+        
+        <main class="main" role="main" id="main-content">
+            
+            <div class="approvals-page-header">
+                <div>
+                    <h1 class="page-title">Registrar & VPAA Approvals</h1>
+                    <p class="page-subtitle">Review and approve grade submissions, extensions, and change requests.</p>
+                </div>
+                <div class="approvals-header-actions">
+                    <a th:href="@{/admin/grade-records}" class="btn btn-outline"><i class="ti ti-chart-bar"></i> Open Grade Records</a>
+                    <a th:href="@{/admin/classes}" class="btn btn-outline"><i class="ti ti-school"></i> Open Class Records</a>
+                </div>
+            </div>
+
+            <!-- VPAA Extension Requests -->
+            <div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--danger-color);">
+                <div class="card-header" style="border-bottom: none; padding-bottom: 0;">
+                    <h4 class="card-title" style="color: var(--danger-color);"><i class="ti ti-clock-exclamation" aria-hidden="true"></i> VPAA Extension Requests (Past Deadline)</h4>
+                </div>
+                <div style="padding: 1rem 1.5rem 1.5rem;">
+                    <div class="approvals-table-wrap">
+                        <table class="table-eac">
+                            <thead>
+                                <tr>
+                                    <th style="padding-left: 1.5rem;">Faculty</th>
+                                    <th>Subject Code</th>
+                                    <th>Reason for Extension</th>
+                                    <th style="padding-right: 1.5rem; text-align: right;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="ext : ${extensions}">
+                                    <td style="padding-left: 1.5rem; font-weight: 700; color: var(--text-primary);" th:text="${ext.faculty_name}"></td>
+                                    <td><span style="background: var(--bg-tertiary); padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 600; font-size: 0.85rem;" th:text="${ext.course_code}"></span></td>
+                                    <td style="color: var(--danger-color); font-weight: 600;" th:text="${ext.reason}"></td>
+                                    <td style="padding-right: 1.5rem; text-align: right;">
+                                        <form th:action="@{/admin/approve-extension}" method="post" data-confirm="Grant 24-hour grading extension to this faculty member?" data-confirm-title="Grant grading extension?" data-confirm-tone="warning" style="margin: 0;">
+                                            <input type="hidden" name="extId" th:value="${ext.ext_id}">
+                                            <button class="btn btn-outline" style="color: var(--danger-color); border-color: rgba(220, 38, 38, 0.2);"><i class="ti ti-lock-open" aria-hidden="true"></i> Unlock</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(extensions)}">
+                                    <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">No pending VPAA extension requests.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pending Class Grade Submissions -->
+            <div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--primary-color);">
+                <div class="card-header" style="border-bottom: none; padding-bottom: 0;">
+                    <h4 class="card-title" style="color: var(--primary-color);"><i class="ti ti-file-signature" aria-hidden="true"></i> Pending Class Grade Submissions</h4>
+                </div>
+                <div style="padding: 1rem 1.5rem 1.5rem;">
+                    <div class="approvals-table-wrap">
+                        <table class="table-eac">
+                            <thead>
+                                <tr>
+                                    <th style="padding-left: 1.5rem;">Faculty</th>
+                                    <th>Course</th>
+                                    <th>Schedule</th>
+                                    <th style="padding-right: 1.5rem; text-align: right;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="c : ${pendingClasses}">
+                                    <td style="padding-left: 1.5rem; font-weight: 700; color: var(--text-primary);" th:text="${c.faculty_name}"></td>
+                                    <td style="font-weight: 600;" th:text="${c.course_code}"></td>
+                                    <td style="color: var(--text-muted); font-size: 0.85rem;" th:text="${c.pretty_schedule}"></td>
+                                    <td style="padding-right: 1.5rem; text-align: right; white-space: nowrap;">
+                                        <a th:href="@{/admin/classes/view/{id}(id=${c.schedule_id})}" class="btn btn-outline" style="margin-right: 0.5rem;"><i class="ti ti-eye"></i> View</a>
+                                        <form th:action="@{/admin/approve-class}" method="post"
+                                              data-confirm="Post this class submission to student transcripts? This finalizes the submitted class record for registrar processing."
+                                              data-confirm-title="Post class to transcripts"
+                                              data-confirm-tone="warning"
+                                              data-confirm-accept="Post to transcripts"
+                                              th:attr="data-confirm-summary=${'Course: ' + c.course_code + '\nFaculty: ' + c.faculty_name}"
+                                              style="display: inline-block; margin: 0;">
+                                            <input type="hidden" name="scheduleId" th:value="${c.schedule_id}">
+                                            <button class="btn btn-primary"><i class="ti ti-file-check" aria-hidden="true"></i> Post to Transcripts</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(pendingClasses)}">
+                                    <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">No pending class submissions.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grade Change & INC Resolution Requests -->
+            <div class="card" style="border-left: 4px solid var(--warning-color);">
+                <div class="card-header" style="border-bottom: none; padding-bottom: 0;">
+                    <h4 class="card-title" style="color: var(--warning-color);"><i class="ti ti-replace" aria-hidden="true"></i> Grade Change & INC Resolution Requests</h4>
+                </div>
+                <div style="padding: 1rem 1.5rem 1.5rem;">
+                    <div class="approvals-table-wrap">
+                        <table class="table-eac">
+                            <thead>
+                                <tr>
+                                    <th style="padding-left: 1.5rem;">Faculty</th>
+                                    <th>Student</th>
+                                    <th>Course</th>
+                                    <th style="text-align: center;">Type</th>
+                                    <th style="text-align: center;">Current</th>
+                                    <th style="text-align: center;">Requested</th>
+                                    <th>Reason</th>
+                                    <th style="padding-right: 1.5rem; text-align: right;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="r : ${requests}">
+                                    <td style="padding-left: 1.5rem; color: var(--text-muted); font-size: 0.85rem;" th:text="${r.faculty}"></td>
+                                    <td style="font-weight: 700; color: var(--primary-color);" th:text="${r.student_name}"></td>
+                                    <td style="font-weight: 600;" th:text="${r.course_code}"></td>
+                                    <td style="text-align: center;"><span style="background: rgba(14, 165, 233, 0.1); color: #0ea5e9; padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.75rem;" th:text="${r.request_label}"></span></td>
+                                    <td style="text-align: center;"><span style="background: var(--bg-tertiary); color: var(--text-muted); padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.85rem;" th:text="${r.old_grade}"></span></td>
+                                    <td style="text-align: center;"><span style="background: rgba(34, 197, 94, 0.1); color: var(--success-color); padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 700; font-size: 0.85rem;" th:text="${r.requested_summary}"></span></td>
+                                    <td style="color: var(--danger-color); font-weight: 600; font-size: 0.85rem;" th:text="${r.reason}"></td>
+                                    <td style="padding-right: 1.5rem; text-align: right;">
+                                        <div class="approvals-action-stack">
+                                        <form th:action="@{/admin/approve-change}" method="post" data-confirm="Approve this grade correction request?" data-confirm-title="Approve grade change?" data-confirm-tone="warning" style="margin: 0;">
+                                            <input type="hidden" name="requestId" th:value="${r.request_id}">
+                                            <button class="btn btn-outline" style="color: var(--warning-color); border-color: rgba(245, 158, 11, 0.2);"><i class="ti ti-check" aria-hidden="true"></i> Approve</button>
+                                        </form>
+                                        <details style="display:inline-block;">
+                                            <summary class="btn btn-outline" style="color: var(--danger-color); border-color: rgba(220, 38, 38, 0.2); list-style:none; cursor:pointer;">
+                                                <i class="ti ti-x"></i> Reject
+                                            </summary>
+                                            <form th:action="@{/admin/reject-change}" method="post"
+                                                  data-confirm="Reject this grade correction request? The registrar review note will be recorded with the decision."
+                                                  data-confirm-title="Reject grade change"
+                                                  data-confirm-tone="danger"
+                                                  data-confirm-accept="Reject request"
+                                                  th:attr="data-confirm-summary=${'Student: ' + r.student_name + '\nCourse: ' + r.course_code}"
+                                                  style="margin-top:0.75rem; width:260px; padding:0.9rem; border:1px solid var(--border-color); border-radius:var(--radius-md); background:var(--surface-color); box-shadow:var(--shadow-sm);">
+                                                <input type="hidden" name="requestId" th:value="${r.request_id}">
+                                                <label style="display:block; font-size:0.82rem; color:var(--text-muted); margin-bottom:0.4rem;">Registrar review note</label>
+                                                <textarea name="reviewNote" class="form-control" rows="3" placeholder="State why this request is being rejected." required></textarea>
+                                                <div style="display:flex; justify-content:flex-end; margin-top:0.75rem;">
+                                                    <button type="submit" class="btn btn-primary" style="background: var(--danger-color); border-color: var(--danger-color);"><i class="ti ti-x"></i> Confirm</button>
+                                                </div>
+                                            </form>
+                                        </details>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(requests)}">
+                                    <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">No pending grade change requests.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+</body>
+</html>

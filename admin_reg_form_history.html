@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head}"></head>
+<body>
+<style th:attr="nonce=${cspNonce}">
+    .regform-page-header { display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem; }
+    .regform-header-actions { display:flex; gap:0.5rem; flex-wrap:wrap; }
+    .regform-stats-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:1rem; margin-bottom:1.5rem; }
+    .regform-filter-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0.75rem; align-items:end; }
+    .regform-summary-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:1rem; margin-bottom:1.5rem; }
+    .regform-summary-card { min-width:0; overflow:visible; }
+    .regform-summary-card > div { min-width:0; }
+    .regform-summary-name {
+        font-size:0.95rem;
+        font-weight:800;
+        line-height:1.25;
+        margin-top:0.25rem;
+        overflow-wrap:anywhere;
+        word-break:normal;
+    }
+    .regform-table-wrap { overflow-x:auto; border:1px solid var(--border-color); border-radius:var(--radius-md); }
+    .regform-actions { display:flex; gap:0.5rem; flex-wrap:wrap; }
+    @media (max-width: 900px) {
+        .regform-page-header { align-items:flex-start; }
+        .regform-header-actions, .regform-actions { width:100%; }
+        .regform-header-actions .btn, .regform-actions .btn { width:100%; justify-content:center; }
+        .regform-filter-grid { grid-template-columns:1fr; }
+        .regform-table-wrap table { min-width: 900px; }
+    }
+    @media (max-width: 760px) {
+        .regform-stats-grid, .regform-summary-grid { grid-template-columns:1fr; }
+        .regform-table-wrap table { min-width: 820px; }
+    }
+</style>
+<div class="app">
+    <div th:replace="~{fragments/layout :: topbar}"></div>
+
+    <div class="body-wrapper">
+        <nav th:replace="~{fragments/layout :: sidebar(activeLink='regform-history')}"></nav>
+
+        <main class="main" role="main" id="main-content">
+            <div class="breadcrumb" aria-label="Breadcrumb">
+                <i class="ti ti-home" aria-hidden="true"></i>
+                <i class="ti ti-chevron-right" aria-hidden="true"></i>
+                <span>Admin & Finance</span>
+                <i class="ti ti-chevron-right" aria-hidden="true"></i>
+                <span>Reg Form History</span>
+            </div>
+
+            <div class="regform-page-header">
+                <div>
+                    <h1 class="page-title" th:text="${pageTitle}">Reg Form History</h1>
+                    <p class="page-subtitle" th:text="${pageSubtitle}">Saved registrar registration form versions plus the supporting audit trail.</p>
+                </div>
+                <div class="regform-header-actions">
+                    <a th:href="@{/admin/student-manager}" class="btn btn-outline" style="font-size: 0.85rem;">Open Student Profile</a>
+                    <a th:href="@{/admin/withdrawals/report}" class="btn btn-outline" style="font-size: 0.85rem;">Withdrawal Report</a>
+                    <a th:href="@{/admin/reg-form-history/export(studentNumber=${studentNumber},eventType=${eventType},fromDate=${fromDate},toDate=${toDate},limit=${limit})}" class="btn btn-primary" style="background: #2563EB; border-color: #2563EB; font-size: 0.85rem;">Export Event CSV</a>
+                </div>
+            </div>
+
+            <div th:if="${versionSummary != null}" class="regform-stats-grid">
+                <div class="card" style="border-left: 4px solid #2563EB;">
+                    <div style="padding: 1rem 1.1rem;">
+                        <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Saved Versions</div>
+                        <div style="font-weight: 800; font-size: 1.05rem; margin-top: 0.25rem;" th:text="${versionSummary.total_versions != null ? versionSummary.total_versions : 0}">0</div>
+                    </div>
+                </div>
+                <div class="card" style="border-left: 4px solid #0EA5E9;">
+                    <div style="padding: 1rem 1.1rem;">
+                        <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Students Touched</div>
+                        <div style="font-weight: 800; font-size: 1.05rem; margin-top: 0.25rem;" th:text="${versionSummary.touched_students != null ? versionSummary.touched_students : 0}">0</div>
+                    </div>
+                </div>
+                <div class="card" style="border-left: 4px solid #F59E0B;">
+                    <div style="padding: 1rem 1.1rem;">
+                        <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Latest Saved Version</div>
+                        <div style="font-weight: 800; font-size: 1.05rem; margin-top: 0.25rem;" th:text="${versionSummary.latest_version_at != null ? versionSummary.latest_version_at : 'None'}">None</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid #2563EB;">
+                <div class="card-header">
+                    <h4 class="card-title" style="margin: 0; color: #2563EB;">
+                        <i class="ti ti-filter" aria-hidden="true"></i> Filters
+                    </h4>
+                </div>
+                <div style="padding: 1rem 1.25rem 1.25rem;">
+                    <form method="get" th:action="@{/admin/reg-form-history}" class="regform-filter-grid">
+                        <div>
+                            <label style="font-size: 0.8rem; font-weight: 600;">Student Number</label>
+                            <input type="text" name="studentNumber" class="form-control" placeholder="Optional student number" th:value="${studentNumber}">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem; font-weight: 600;">Event Type</label>
+                            <select name="eventType" class="form-control">
+                                <option value="" th:selected="${eventType == ''}">All event types</option>
+                                <option th:each="row : ${eventTypeSummary}" th:value="${row.event_type}" th:text="${row.event_type + ' (' + row.event_count + ')'}" th:selected="${eventType == row.event_type}"></option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem; font-weight: 600;">From</label>
+                            <input type="date" name="fromDate" class="form-control" th:value="${fromDate}">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem; font-weight: 600;">To</label>
+                            <input type="date" name="toDate" class="form-control" th:value="${toDate}">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem; font-weight: 600;">Limit</label>
+                            <input type="number" name="limit" min="1" max="500" class="form-control" th:value="${limit}">
+                        </div>
+                        <div class="regform-actions">
+                            <button type="submit" class="btn btn-primary" style="background: #2563EB; border-color: #2563EB;">Apply Filters</button>
+                            <a th:href="@{/admin/reg-form-history}" class="btn btn-outline">Reset</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="regform-summary-grid" th:if="${filtersApplied}">
+                <div class="card regform-summary-card" th:each="row : ${eventTypeSummary}" style="border-left: 4px solid #2563EB;">
+                    <div style="padding: 1rem 1.1rem;">
+                        <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Event Trail Type</div>
+                        <div class="regform-summary-name" th:text="${row.event_type}">EVENT</div>
+                        <div style="margin-top: 0.35rem; color: var(--text-muted);" th:text="${row.event_count + ' record(s)'}">0 record(s)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" th:if="${filtersApplied}" style="margin-bottom: 1.5rem; border-left: 4px solid #0EA5E9;">
+                <div class="card-header">
+                    <h4 class="card-title" style="margin: 0; color: #0EA5E9;">
+                        <i class="ti ti-stack-2" aria-hidden="true"></i> Saved Versions
+                    </h4>
+                </div>
+                <div style="padding: 1rem 1.25rem 1.25rem;">
+                    <div class="regform-table-wrap">
+                        <table class="table-eac" style="margin: 0;">
+                            <thead>
+                                <tr>
+                                    <th style="padding-left: 1rem;">Student</th>
+                                    <th>Trigger</th>
+                                    <th>Term</th>
+                                    <th>Load</th>
+                                    <th>Saved By</th>
+                                    <th>Saved At</th>
+                                    <th style="padding-right: 1rem; text-align: right;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:if="${versions == null or #lists.isEmpty(versions)}">
+                                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">
+                                        No saved registration form versions match the current filters.
+                                    </td>
+                                </tr>
+                                <tr th:each="version : ${versions}">
+                                    <td style="padding-left: 1rem;">
+                                        <div style="font-weight: 700;" th:text="${version.student_number}">STUDENT</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted);" th:text="${'#V' + version.version_id}">#V1</div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #0EA5E9;" th:text="${version.source_event_type}">CURRENT_PRINT</div>
+                                        <div style="font-size: 0.8rem; color: var(--text-muted);" th:text="${version.purpose}">Purpose</div>
+                                    </td>
+                                    <td>
+                                        <div style="font-size: 0.82rem;" th:text="${version.term_label != null ? version.term_label : 'Current active term'}">Term</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted);" th:if="${version.remarks != null}" th:text="${version.remarks}">Remarks</div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700;" th:text="${version.subject_count + ' subject(s)'}">0 subject(s)</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted);" th:text="${version.total_units + ' unit(s)'}">0 unit(s)</div>
+                                    </td>
+                                    <td th:text="${version.captured_by != null ? version.captured_by : 'system'}">registrar</td>
+                                    <td style="white-space: nowrap; color: var(--text-muted);" th:text="${version.created_at}">timestamp</td>
+                                    <td style="padding-right: 1rem; text-align: right;">
+                                        <div class="regform-actions" style="justify-content: flex-end;">
+                                            <a th:href="@{/admin/reg-form-history/version/{versionId}/print(versionId=${version.version_id})}" target="_blank" class="btn btn-primary" style="background: #0EA5E9; border-color: #0EA5E9; font-size: 0.8rem;">Open PDF</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" th:if="${filtersApplied}" style="border-left: 4px solid #2563EB;">
+                <div class="card-header">
+                    <h4 class="card-title" style="margin: 0; color: #2563EB;">
+                        <i class="ti ti-list-details" aria-hidden="true"></i> Supporting Event Trail
+                    </h4>
+                </div>
+                <div style="padding: 1rem 1.25rem 1.25rem;">
+                    <div class="regform-table-wrap">
+                        <table class="table-eac" style="margin: 0;">
+                            <thead>
+                                <tr>
+                                    <th style="padding-left: 1rem;">Student</th>
+                                    <th>Event</th>
+                                    <th>Details</th>
+                                    <th>Triggered By</th>
+                                    <th>When</th>
+                                    <th style="padding-right: 1rem; text-align: right;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:if="${events == null or #lists.isEmpty(events)}">
+                                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">
+                                        No reg form audit events match the current filters.
+                                    </td>
+                                </tr>
+                                <tr th:each="event : ${events}">
+                                    <td style="padding-left: 1rem;">
+                                        <div style="font-weight: 700;" th:text="${event.student_number}">STUDENT</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted);" th:text="${'#' + event.event_id}">#1</div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 700; color: #2563EB;" th:text="${event.event_type}">TYPE</div>
+                                        <div style="font-size: 0.8rem; color: var(--text-muted);" th:text="${event.purpose}">Purpose</div>
+                                    </td>
+                                    <td>
+                                        <div style="font-size: 0.82rem; color: var(--text-primary);" th:text="${event.remarks != null ? event.remarks : 'No remarks'}">Remarks</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted);" th:if="${event.related_request_id != null}" th:text="${'Request #' + event.related_request_id}">Request</div>
+                                    </td>
+                                    <td>
+                                        <span th:text="${event.triggered_by != null ? event.triggered_by : 'system'}">registrar</span>
+                                    </td>
+                                    <td style="white-space: nowrap; color: var(--text-muted);" th:text="${event.created_at}">timestamp</td>
+                                    <td style="padding-right: 1rem; text-align: right;">
+                                        <div class="regform-actions" style="justify-content: flex-end;">
+                                            <a th:href="@{/admin/student-manager(username=${event.student_number})}" class="btn btn-outline" style="font-size: 0.8rem;">Open Profile</a>
+                                            <th:block th:if="${event.version_id != null}">
+                                                <a th:href="@{/admin/reg-form-history/version/{versionId}/print(versionId=${event.version_id})}" target="_blank" class="btn btn-primary" style="background: #0EA5E9; border-color: #0EA5E9; font-size: 0.8rem;">Open PDF</a>
+                                            </th:block>
+                                            <span th:unless="${event.version_id != null}" aria-disabled="true" title="This legacy event has no captured registration form snapshot." style="font-size: 0.78rem; color: var(--text-muted);">No saved version</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <title>Slot Monitoring - EAC Registrar</title>
+    <th:block th:replace="~{fragments/layout :: head}"></th:block>
+    <style th:attr="nonce=${cspNonce}">
+        .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+        .stat-card { background:white; border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:1rem; }
+        .stat-value { font-size:1.6rem; font-weight:800; }
+        .stat-label { color:var(--text-muted); font-size:.75rem; font-weight:700; text-transform:uppercase; }
+        .filter-row { display:flex; gap:.8rem; flex-wrap:wrap; align-items:flex-end; margin-bottom:1rem; }
+        .row-actions { display:flex; gap:.3rem; flex-wrap:wrap; justify-content:flex-end; }
+        .cap-input { width:70px; padding:.25rem .4rem; }
+        .hint-box { margin-top:1rem; color:var(--text-muted); background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:.75rem .9rem; font-size:.86rem; }
+        .slot-page-header { display:flex; flex-wrap:wrap; justify-content:space-between; gap:1rem; align-items:flex-end; }
+        .slot-table-wrap { overflow-x:auto; border:1px solid var(--border-color); border-radius:var(--radius-md); }
+        @media (max-width: 900px) {
+            .filter-row { flex-direction:column; align-items:stretch; }
+            .filter-row > div, .filter-row .btn, .filter-row a { width:100%; }
+            .slot-table-wrap table { min-width: 920px; }
+        }
+        @media (max-width: 760px) {
+            .stats-grid { grid-template-columns:1fr; }
+            .slot-page-header { align-items:flex-start; }
+            .row-actions { flex-direction:column; align-items:stretch; }
+            .row-actions .btn, .row-actions form, .cap-input { width:100%; }
+            .slot-table-wrap table { min-width: 860px; }
+        }
+    </style>
+</head>
+<body>
+<div class="app">
+    <th:block th:replace="~{fragments/layout :: topbar}"></th:block>
+    <div class="body-wrapper">
+        <th:block th:replace="~{fragments/layout :: sidebar('slot-monitoring')}"></th:block>
+        <main class="main">
+            <div th:if="${msg}" class="alert alert-success" style="margin-bottom:1rem;"><span th:text="${msg}"></span></div>
+
+            <div class="breadcrumb" aria-label="Breadcrumb">
+                <i class="ti ti-home" aria-hidden="true"></i><i class="ti ti-chevron-right" aria-hidden="true"></i>
+                <span>Academics</span><i class="ti ti-chevron-right" aria-hidden="true"></i><span>Slot Monitoring</span>
+            </div>
+
+            <div class="slot-page-header" style="margin-bottom:0.25rem;">
+                <div>
+                    <h1 class="page-title">Slot Monitoring</h1>
+                    <p class="page-subtitle">Committed enrollment, staged pre-registration, and section capacity in one registrar view.</p>
+                </div>
+            </div>
+
+            <div class="hint-box" style="margin-bottom:1.5rem;">
+                Close here follows the current registrar canon: it uses the same close action as Class Scheduling and only succeeds when no committed students remain in the section.
+            </div>
+
+            <div class="stats-grid" th:if="${hasSlotProgramFilter}">
+                <div class="stat-card"><div class="stat-value" th:text="${summary.total}">0</div><div class="stat-label">Sections</div></div>
+                <div class="stat-card"><div class="stat-value" th:text="${summary.open}">0</div><div class="stat-label">Open</div></div>
+                <div class="stat-card"><div class="stat-value" th:text="${summary.closed}">0</div><div class="stat-label">Closed Status</div></div>
+                <div class="stat-card"><div class="stat-value" th:text="${summary.full}">0</div><div class="stat-label">At Capacity</div></div>
+            </div>
+
+            <div class="card" style="padding:1rem; margin-bottom:1rem;">
+                <form th:action="@{/admin/slot-monitoring}" method="get" class="filter-row" style="margin-bottom:0;">
+                    <div><label class="form-label">Term</label>
+                        <select name="termId" class="form-control" onchange="this.form.submit()">
+                            <option th:each="t : ${terms}" th:value="${t.term_id}" th:text="${t.term_name}" th:selected="${t.term_id == termId}"></option>
+                        </select>
+                    </div>
+                    <div><label class="form-label">Program</label>
+                        <select name="programCode" class="form-control" onchange="this.form.submit()">
+                            <option value="">Select program</option>
+                            <option th:each="p : ${slotProgramOptions}"
+                                    th:value="${p.program_code}"
+                                    th:text="${p.program_code + ' - ' + p.program_name}"
+                                    th:selected="${programCode == p.program_code}"></option>
+                        </select>
+                    </div>
+                    <div><label class="form-label">Search</label><input name="search" class="form-control" th:value="${search}" placeholder="Course or section"></div>
+                    <button type="submit" class="btn btn-primary">Apply</button>
+                    <a th:if="${(programCode != null and !#strings.isEmpty(programCode)) or (search != null and !#strings.isEmpty(search))}"
+                       th:href="@{/admin/slot-monitoring(termId=${termId})}"
+                       class="btn btn-outline">Clear</a>
+                    <a th:href="@{/admin/class-scheduling(termId=${termId}, view='courses')}" class="btn btn-outline">Class Scheduling</a>
+                </form>
+            </div>
+
+            <form th:action="@{/admin/slot-monitoring/bulk-close}" method="post"
+                  th:if="${hasSlotProgramFilter}"
+                  data-confirm="Close the selected sections using the current registrar close rule? New enrollment will be blocked for each selected section."
+                  data-confirm-title="Close selected sections"
+                  data-confirm-tone="warning"
+                  data-confirm-accept="Close sections">
+                <input type="hidden" name="termId" th:value="${termId}">
+                <input type="hidden" name="search" th:value="${search}">
+                <input type="hidden" name="programCode" th:value="${programCode}">
+                <div class="card" style="padding:0; overflow:hidden;">
+                    <div style="padding:.75rem 1rem; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+                        <label style="margin:0;"><input type="checkbox" id="selectAll" onclick="document.querySelectorAll('.sec-check').forEach(c=>c.checked=this.checked)"> Select all</label>
+                        <button type="submit" class="btn btn-outline" data-confirm="Close selected sections using the current registrar close rule?" data-confirm-title="Close selected sections?" data-confirm-tone="warning">Close Selected</button>
+                    </div>
+                    <div class="slot-table-wrap">
+                    <table class="table-eac" style="margin:0;">
+                        <thead><tr>
+                            <th></th><th>Course</th><th>Section</th><th>Committed</th><th>Pre-Reg</th><th>Max</th><th>Left</th><th>Status</th><th>Actions</th>
+                        </tr></thead>
+                        <tbody>
+                        <tr th:each="s : ${sections}">
+                            <td><input class="sec-check" type="checkbox" name="sectionIds" th:value="${s.section_id}" th:disabled="${s.is_closed}"></td>
+                            <td>
+                                <strong th:text="${s.course_code}"></strong><br>
+                                <small th:text="${s.course_title}"></small><br>
+                                <small style="color:var(--text-muted);" th:text="${s.program_code != null ? s.program_code + ' ' + s.block_section : s.term_label}"></small>
+                            </td>
+                            <td th:text="${s.section_code}"></td>
+                            <td th:text="${s.enrolled_count}"></td>
+                            <td th:text="${s.prereg_count}"></td>
+                            <td>
+                                <form th:action="@{/admin/slot-monitoring/update-capacity}" method="post"
+                                      data-confirm="Save this section capacity? This can change the number of students who may enroll."
+                                      data-confirm-title="Update section capacity"
+                                      data-confirm-tone="warning"
+                                      data-confirm-accept="Save capacity"
+                                      th:attr="data-confirm-summary=${'Section: ' + s.section_code}"
+                                      style="display:flex; gap:.25rem; margin:0;">
+                                    <input type="hidden" name="sectionId" th:value="${s.section_id}">
+                                    <input type="hidden" name="termId" th:value="${termId}">
+                                    <input type="hidden" name="search" th:value="${search}">
+                                    <input type="hidden" name="programCode" th:value="${programCode}">
+                                    <input class="form-control cap-input" type="number" name="maxCapacity" th:value="${s.max_capacity}" min="1" max="500">
+                                    <button type="submit" class="btn btn-outline" style="padding:.2rem .45rem;" title="Save capacity"><i class="ti ti-device-floppy"></i></button>
+                                </form>
+                            </td>
+                            <td th:text="${s.slots_left}"></td>
+                            <td><span class="status-badge" th:classappend="${s.is_closed} ? 'inactive' : (${s.is_full} ? 'waitlist' : 'enrolled')" th:text="${s.section_status}"></span></td>
+                            <td>
+                                <div class="row-actions">
+                                    <a th:href="@{/admin/class-scheduling(termId=${termId}, view='courses')}" class="btn btn-outline" style="padding:.25rem .5rem;" title="Open in scheduling">Open</a>
+                                    <form th:if="${!s.is_closed}" th:action="@{/admin/slot-monitoring/close}" method="post"
+                                          data-confirm="Close this section? New enrollment will be blocked while the section is closed."
+                                          data-confirm-title="Close section"
+                                          data-confirm-tone="warning"
+                                          data-confirm-accept="Close section"
+                                          th:attr="data-confirm-summary=${'Section: ' + s.section_code}"
+                                          style="margin:0;">
+                                        <input type="hidden" name="sectionId" th:value="${s.section_id}">
+                                        <input type="hidden" name="termId" th:value="${termId}">
+                                        <input type="hidden" name="search" th:value="${search}">
+                                        <input type="hidden" name="programCode" th:value="${programCode}">
+                                        <button type="submit" class="btn btn-outline" style="padding:.25rem .5rem;" title="Close">Close</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(sections)}"><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-muted);">No sections for this term.</td></tr>
+                        </tbody>
+                    </table>
+                    </div>
+                </div>
+            </form>
+        </main>
+    </div>
+</div>
+</body>
+</html>

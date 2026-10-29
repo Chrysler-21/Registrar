@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head}"></head>
+<body>
+    <style th:attr="nonce=${cspNonce}">
+        #termTransitionCard .card-body > p:first-of-type { display: none; }
+        
+        .readiness-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+        .readiness-stat-box { background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; text-align: center; }
+        .readiness-stat-lbl { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-bottom: 0.25rem; }
+        .readiness-stat-val { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); }
+    </style>
+    <script th:attr="nonce=${cspNonce}" th:inline="javascript">
+        const contextPath = /*[[@{/}]]*/ '';
+    </script>
+
+<div class="app">
+    <div th:replace="~{fragments/layout :: topbar}"></div>
+    
+    <div class="body-wrapper">
+        <nav th:replace="~{fragments/layout :: sidebar(activeLink='settings')}"></nav>
+        
+        <main class="main" role="main" id="main-content">
+            
+            <div th:if="${param.success}" class="alert alert-success" style="margin-bottom: 1.5rem;"><i class="ti ti-check"></i> Settings updated successfully!</div>
+            <div th:if="${param.termSuccess}" class="alert alert-success" style="margin-bottom: 1.5rem;"><i class="ti ti-check"></i> Global academic term updated. Eligible enrolled students were advanced; unpaid prior-term balances were forwarded (not held on the old term).</div>
+            <div th:if="${termErrorMsg}" class="alert alert-danger" style="margin-bottom: 1.5rem;"><i class="ti ti-alert-triangle"></i> <span th:text="${termErrorMsg}"></span></div>
+            <div th:if="${termAdvancedMsg}" class="alert alert-info" style="margin-bottom: 1.5rem;"><i class="ti ti-info-circle"></i> <span th:text="${termAdvancedMsg}"></span></div>
+            <div th:if="${termForwardedMsg}" class="alert alert-warning" style="margin-bottom: 1.5rem;"><i class="ti ti-alert-circle"></i> <span th:text="${termForwardedMsg}"></span></div>
+            <div th:if="${incExpireMsg}" class="alert alert-info" style="margin-bottom: 1.5rem;"><i class="ti ti-info-circle"></i> <span th:text="${incExpireMsg}"></span></div>
+            <div th:if="${param.termAddMsg}" class="alert alert-info" style="margin-bottom: 1.5rem;"><i class="ti ti-info-circle"></i> <span th:text="${param.termAddMsg}"></span></div>
+
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem;">
+                <div>
+                    <h1 class="page-title">System Settings</h1>
+                    <p class="page-subtitle">Configure academic terms, grading periods, and global system parameters.</p>
+                </div>
+            </div>
+
+            <!-- Readiness Card -->
+            <div id="readinessCard" class="card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--danger-color);" th:classappend="${termReadiness != null and termReadiness.get('ready')} ? 'border-success' : 'border-danger'">
+                <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+                    <h4 class="card-title" th:style="${termReadiness != null and termReadiness.get('ready')} ? 'color: var(--success-color);' : 'color: var(--danger-color);'">
+                        <i id="readinessIcon" class="ti" th:classappend="${termReadiness != null and termReadiness.get('ready')} ? 'ti-clipboard-check' : 'ti-clipboard-x'" aria-hidden="true"></i> 
+                        <span id="readinessTitle">Active Term Readiness</span>
+                    </h4>
+                </div>
+                <div style="padding: 1.5rem;">
+                    <div th:if="${termReadiness == null}" class="alert alert-warning" style="margin: 0;">Readiness summary is not available.</div>
+                    <div th:if="${termReadiness != null}">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+                            <div>
+                                <div id="readinessTermLabel" style="font-weight: 700; font-size: 1.1rem; color: var(--text-primary);" th:text="${termReadiness.get('termLabel') ?: 'No active term'}"></div>
+                                <div id="readinessStatusText" style="color: var(--text-muted); font-size: 0.9rem;" th:text="${termReadiness.get('statusText')}"></div>
+                            </div>
+                            <span id="readinessBadge" class="status-badge" th:classappend="${termReadiness.get('ready')} ? 'enrolled' : 'rejected'">
+                                <div class="status-dot"></div>
+                                <span th:text="${termReadiness.get('ready')} ? 'Ready' : 'Needs review'">Needs review</span>
+                            </span>
+                        </div>
+
+                        <div class="readiness-stats">
+                            <div class="readiness-stat-box">
+                                <div class="readiness-stat-lbl">Programs</div>
+                                <div id="readinessProgramCount" class="readiness-stat-val" th:text="${termReadiness.get('programCount')}">0</div>
+                            </div>
+                            <div class="readiness-stat-box">
+                                <div class="readiness-stat-lbl">Fee scopes checked</div>
+                                <div id="readinessCheckedScopeCount" class="readiness-stat-val" th:text="${termReadiness.get('checkedScopeCount')}">0</div>
+                            </div>
+                            <div class="readiness-stat-box">
+                                <div class="readiness-stat-lbl">Missing fee scopes</div>
+                                <div id="readinessMissingFeeScopeCount" class="readiness-stat-val" style="color: var(--danger-color);" th:text="${termReadiness.get('missingFeeScopeCount')}">0</div>
+                            </div>
+                            <div class="readiness-stat-box">
+                                <div class="readiness-stat-lbl">Fallback fee scopes</div>
+                                <div id="readinessFallbackFeeScopeCount" class="readiness-stat-val" style="color: var(--warning-color);" th:text="${termReadiness.get('fallbackFeeScopeCount')}">0</div>
+                            </div>
+                            <div class="readiness-stat-box">
+                                <div class="readiness-stat-lbl">Incomplete fee scopes</div>
+                                <div id="readinessIncompleteFeeScopeCount" class="readiness-stat-val" style="color: var(--warning-color);" th:text="${termReadiness.get('incompleteFeeScopeCount')}">0</div>
+                            </div>
+                        </div>
+
+                        <div id="readinessMissingTablesBox" th:style="${termReadiness.get('missingTables') != null and !termReadiness.get('missingTables').isEmpty()} ? 'margin-top: 1.5rem;' : 'display:none;'">
+                            <div class="alert alert-danger" style="margin: 0;">
+                                <i class="ti ti-database-x"></i> Missing tables: <span id="readinessMissingTablesText" style="font-family: monospace; font-weight: 600;" th:text="${termReadiness.get('missingTables')}"></span>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+                            <div id="readinessMissingCurriculaBox" th:style="${termReadiness.get('missingCurricula') != null and !termReadiness.get('missingCurricula').isEmpty()} ? '' : 'display:none;'">
+                                <div class="alert alert-warning" style="margin: 0; height: 100%;">
+                                    <div style="font-weight: 700; margin-bottom: 0.5rem;"><i class="ti ti-alert-circle"></i> Programs without active curriculum</div>
+                                    <div id="readinessMissingCurriculaText" style="font-family: monospace; font-size: 0.85rem;" th:text="${termReadiness.get('missingCurricula')}"></div>
+                                </div>
+                            </div>
+                            <div id="readinessMissingFeesBox" th:style="${termReadiness.get('missingFeeExamples') != null and !termReadiness.get('missingFeeExamples').isEmpty()} ? '' : 'display:none;'">
+                                <div class="alert alert-danger" style="margin: 0; height: 100%;">
+                                    <div style="font-weight: 700; margin-bottom: 0.5rem;"><i class="ti ti-receipt-tax"></i> Missing fee examples</div>
+                                    <div id="readinessMissingFeesList">
+                                        <div style="font-family: monospace; font-size: 0.85rem; margin-bottom: 0.25rem;" th:each="x : ${termReadiness.get('missingFeeExamples')}" th:text="${x}"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="readinessFallbackFeesBox" th:style="${termReadiness.get('fallbackFeeExamples') != null and !termReadiness.get('fallbackFeeExamples').isEmpty()} ? '' : 'display:none;'">
+                                <div class="alert alert-warning" style="margin: 0; height: 100%;">
+                                    <div style="font-weight: 700; margin-bottom: 0.5rem;"><i class="ti ti-receipt-refund"></i> Fallback fee examples</div>
+                                    <div id="readinessFallbackFeesList">
+                                        <div style="font-family: monospace; font-size: 0.85rem; margin-bottom: 0.25rem;" th:each="x : ${termReadiness.get('fallbackFeeExamples')}" th:text="${x}"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="readinessIncompleteFeesBox" th:style="${termReadiness.get('incompleteFeeExamples') != null and !termReadiness.get('incompleteFeeExamples').isEmpty()} ? '' : 'display:none;'">
+                                <div class="alert alert-warning" style="margin: 0; height: 100%;">
+                                    <div style="font-weight: 700; margin-bottom: 0.5rem;"><i class="ti ti-receipt-2"></i> Incomplete fee examples</div>
+                                    <div id="readinessIncompleteFeesList">
+                                        <div style="font-family: monospace; font-size: 0.85rem; margin-bottom: 0.25rem;" th:each="x : ${termReadiness.get('incompleteFeeExamples')}" th:text="${x}"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+                            <a id="readinessTermFeesLink" th:href="@{/admin/term-fees(termId=${termReadiness.get('termId')})}" class="btn btn-outline">
+                                <i class="ti ti-cash" aria-hidden="true"></i> Review term fees
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                
+                <!-- Global Academic Term Transition -->
+                <div id="termTransitionCard" class="card" style="border-left: 4px solid var(--warning-color);">
+                    <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+                        <h4 class="card-title" style="color: var(--warning-color);"><i class="ti ti-world" aria-hidden="true"></i> Global Academic Term Transition</h4>
+                    </div>
+                    <div style="padding: 1.5rem;">
+                        <p class="text-muted mb-3">Updating the global term <strong>advances all eligible students</strong> (ENROLLED, ADMITTED, or ACTIVE) to the next semester/year. Unpaid balances from the closing term are rolled into <strong>FORWARDED_BALANCE</strong> on the ledger. Students with forwarded debt of <strong>₱100 or above</strong> are blocked from <em>new enlistment</em> until Cashier posts payment — they are <strong>not</strong> left on the previous term. <strong>This action cannot be undone.</strong></p>
+                        <div class="alert alert-warning" style="margin-bottom: 1.5rem;">
+                            <i class="ti ti-alert-triangle"></i> Updating the global term <strong>advances all eligible students</strong> (ENROLLED, ADMITTED, or ACTIVE) to the next semester/year. Unpaid balances from the closing term are rolled into <strong>FORWARDED_BALANCE</strong> on the ledger. Students with forwarded debt at or above the configured threshold (<strong>&#8369;<span th:text="${settings.get('ACCOUNTING_BLOCK_THRESHOLD')}">100.00</span></strong>) are blocked from <em>new enlistment</em> until Cashier posts payment - they are <strong>not</strong> left on the previous term. <strong>This action cannot be undone.</strong>
+                        </div>
+                        <form th:action="@{/admin/update-global-term}" method="post" data-confirm="WARNING: Are you sure you want to transition the entire student body to the new term? This will clear current subject loads and require students to enroll anew." data-confirm-title="Transition global term?" data-confirm-tone="danger" style="margin: 0;">
+                            <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start;">
+                                <div style="flex: 1; min-width: 300px;">
+                                    <select id="newTermCodeSelect" name="newTermCode" class="form-control" style="border-color: var(--warning-color); border-width: 2px;" required>
+                                        <option value="" disabled selected>-- Select New Academic Term --</option>
+                                        <option th:each="t : ${termOptions}" th:value="${t.value}" th:attr="data-term-id=${t.term_id}" th:selected="${settings.get('CURRENT_ACADEMIC_TERM') == t.value}" th:text="${t.label}"></option>
+                                    </select>
+                                </div>
+                                <div style="min-width: 200px;">
+                                    <button id="transitionTermButton" type="submit" class="btn" style="background: var(--warning-color); color: white; width: 100%; border: none; font-weight: 600;" th:disabled="${termReadiness == null or !termReadiness.get('ready')}">
+                                        <i class="ti ti-player-track-next-filled" aria-hidden="true"></i> Transition Term
+                                    </button>
+                                    <div id="transitionReadinessHint" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem; text-align: center;" th:text="${termReadiness != null and termReadiness.get('ready')} ? 'Selected term is ready to transition.' : 'Select a ready term to enable transition.'">
+                                        Select a ready term to enable transition.
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Add Academic Term -->
+                <div class="card" style="border-left: 4px solid var(--success-color);">
+                    <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+                        <h4 class="card-title" style="color: var(--success-color);"><i class="ti ti-calendar-plus" aria-hidden="true"></i> Add Academic Term</h4>
+                    </div>
+                    <div style="padding: 1.5rem;">
+                        <form th:action="@{/admin/terms/add}" method="post" style="margin: 0; display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-end;">
+                            <div style="flex: 2; min-width: 200px;">
+                                <label class="form-label">Academic Year (YYYY-YYYY)</label>
+                                <input name="academicYear" class="form-control" placeholder="2024-2025" required>
+                            </div>
+                            <div style="flex: 1; min-width: 150px;">
+                                <label class="form-label">Semester</label>
+                                <select name="semesterNumber" class="form-control" required>
+                                    <option value="1">1st Semester</option>
+                                    <option value="2">2nd Semester</option>
+                                </select>
+                            </div>
+                            <div style="flex: 1; min-width: 150px;">
+                                <label class="form-label">Start Date</label>
+                                <input type="date" name="startDate" class="form-control">
+                            </div>
+                            <div style="flex: 1; min-width: 150px;">
+                                <label class="form-label">End Date</label>
+                                <input type="date" name="endDate" class="form-control">
+                            </div>
+                            <div>
+                                <button type="submit" class="btn btn-primary" style="background: var(--success-color); border-color: var(--success-color);"><i class="ti ti-plus"></i> Add Term</button>
+                            </div>
+                        </form>
+                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem; border-top: 1px dashed var(--border-color); padding-top: 1rem;">
+                            <i class="ti ti-info-circle"></i> This only adds the term to the database. To open enrollment, use <b>Transition Term</b> above.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Grading Calendar & Overrides -->
+                <div class="card" style="border-left: 4px solid var(--primary-color);">
+                    <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+                        <h4 class="card-title" style="color: var(--primary-color);"><i class="ti ti-calendar-stats" aria-hidden="true"></i> Grading Calendar & Overrides</h4>
+                    </div>
+                    <div style="padding: 1.5rem;">
+                        <form th:action="@{/admin/save-settings}" method="post" style="margin: 0;">
+                            <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-end; margin-bottom: 2rem;">
+                                <div style="flex: 1; min-width: 250px;">
+                                    <label class="form-label">Academic Term for Grading Windows</label>
+                                    <select name="gradingTermId" id="gradingTermIdSelect" class="form-control">
+                                        <option th:each="term : ${termOptions}" th:value="${term.term_id}" th:text="${term.label}" th:selected="${term.term_id == selectedGradingTermId}"></option>
+                                    </select>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">These dates apply to the selected term. Older/global grading dates are used only as fallback.</div>
+                                </div>
+                                <div style="flex: 1; min-width: 250px;">
+                                    <div class="alert alert-info" th:if="${settings.get('term_scoped')}" style="margin: 0; padding: 0.75rem 1rem;">
+                                        <i class="ti ti-info-circle"></i> This term has its own grading window configuration.
+                                    </div>
+                                    <div class="alert alert-warning" th:unless="${settings.get('term_scoped')}" style="margin: 0; padding: 0.75rem 1rem;">
+                                        <i class="ti ti-alert-triangle"></i> This term is currently using fallback global grading settings until saved here.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="margin-bottom: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+                                <div class="alert alert-info" style="margin-bottom: 1.25rem;">
+                                    <i class="ti ti-info-circle"></i>
+                                    Admission fee, downpayment, accounting block, installment schedules, and enrollment rules are managed on
+                                    <a th:href="@{/admin/finance-policy}">Finance &amp; Accounting Policy</a>.
+                                </div>
+                                <div class="alert alert-info" style="margin-bottom: 1.25rem;">
+                                    <i class="ti ti-info-circle"></i>
+                                    The dates below control grade-entry windows only; they do not limit subject add/drop, which is available throughout the active term. Flat subject-drop and shift-cleanup fees are configured in <a th:href="@{/admin/finance-policy}">Finance &amp; Accounting Policy</a>.
+                                </div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+                                    <div style="max-width: 320px;">
+                                        <label class="form-label">INC Expiration Date</label>
+                                        <input type="date" name="INC_EXPIRATION_DATE" class="form-control" th:value="${settings.get('INC_EXPIRATION_DATE')}">
+                                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;" th:text="${settings.get('INC_EXPIRATION_SOURCE') == 'TERM'} ? 'Set for this term.' : 'Fallback: finals end date plus one year.'"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="overflow-x: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); margin-bottom: 2rem;">
+                                <table class="table-eac">
+                                    <thead>
+                                        <tr>
+                                            <th style="padding-left: 1.5rem;">Grade Entry Period</th>
+                                            <th>Start Date</th>
+                                            <th>End Date</th>
+                                            <th style="padding-right: 1.5rem;">Manual Status Override</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td style="padding-left: 1.5rem; font-weight: 700; color: var(--text-primary);">Prelim</td>
+                                            <td><input type="date" name="PRELIM_START" class="form-control" th:value="${settings.get('PRELIM_START')}"></td>
+                                            <td><input type="date" name="PRELIM_END" class="form-control" th:value="${settings.get('PRELIM_END')}"></td>
+                                            <td style="padding-right: 1.5rem;">
+                                                <select name="PRELIM_OVERRIDE" class="form-control">
+                                                    <option value="AUTO" th:selected="${settings.get('PRELIM_OVERRIDE') == 'AUTO'}">Auto (Follow Dates)</option>
+                                                    <option value="FORCE_OPEN" th:selected="${settings.get('PRELIM_OVERRIDE') == 'FORCE_OPEN'}">Force OPEN</option>
+                                                    <option value="FORCE_CLOSED" th:selected="${settings.get('PRELIM_OVERRIDE') == 'FORCE_CLOSED'}">Force CLOSED</option>
+                                                </select>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding-left: 1.5rem; font-weight: 700; color: var(--text-primary);">Midterm grade entry</td>
+                                            <td><input type="date" name="MIDTERM_START" class="form-control" th:value="${settings.get('MIDTERM_START')}"></td>
+                                            <td><input type="date" name="MIDTERM_END" class="form-control" th:value="${settings.get('MIDTERM_END')}"></td>
+                                            <td style="padding-right: 1.5rem;">
+                                                <select name="MIDTERM_OVERRIDE" class="form-control">
+                                                    <option value="AUTO" th:selected="${settings.get('MIDTERM_OVERRIDE') == 'AUTO'}">Auto (Follow Dates)</option>
+                                                    <option value="FORCE_OPEN" th:selected="${settings.get('MIDTERM_OVERRIDE') == 'FORCE_OPEN'}">Force OPEN</option>
+                                                    <option value="FORCE_CLOSED" th:selected="${settings.get('MIDTERM_OVERRIDE') == 'FORCE_CLOSED'}">Force CLOSED</option>
+                                                </select>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding-left: 1.5rem; font-weight: 700; color: var(--text-primary);">Finals</td>
+                                            <td><input type="date" name="FINAL_START" class="form-control" th:value="${settings.get('FINAL_START')}"></td>
+                                            <td><input type="date" name="FINAL_END" class="form-control" th:value="${settings.get('FINAL_END')}"></td>
+                                            <td style="padding-right: 1.5rem;">
+                                                <select name="FINAL_OVERRIDE" class="form-control">
+                                                    <option value="AUTO" th:selected="${settings.get('FINAL_OVERRIDE') == 'AUTO'}">Auto (Follow Dates)</option>
+                                                    <option value="FORCE_OPEN" th:selected="${settings.get('FINAL_OVERRIDE') == 'FORCE_OPEN'}">Force OPEN</option>
+                                                    <option value="FORCE_CLOSED" th:selected="${settings.get('FINAL_OVERRIDE') == 'FORCE_CLOSED'}">Force CLOSED</option>
+                                                </select>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div style="display: flex; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+                                <button type="submit" class="btn btn-outline" style="color: var(--danger-color); border-color: rgba(220, 38, 38, 0.2);" th:formaction="@{/admin/expire-inc}" formmethod="post" data-confirm="Expire overdue INC grades for the selected term? This will mark due INC grades as Failed." data-confirm-title="Expire INC grades?" data-confirm-tone="danger">
+                                    <i class="ti ti-hourglass-empty" aria-hidden="true"></i> Expire Due INCs
+                                </button>
+                                <button type="submit" class="btn btn-primary"><i class="ti ti-device-floppy" aria-hidden="true"></i> Save Matrix Configurations</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+</div>
+
+<script th:attr="nonce=${cspNonce}">
+    (() => {
+        const select = document.getElementById('newTermCodeSelect');
+        const gradingTermSelect = document.getElementById('gradingTermIdSelect');
+        if (gradingTermSelect) {
+            gradingTermSelect.addEventListener('change', () => {
+                window.location.href = `[[@{/admin/settings}]]?gradingTermId=${encodeURIComponent(gradingTermSelect.value)}`;
+            });
+        }
+        if (!select) return;
+
+        const setText = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value ?? '';
+        };
+        const setBox = (id, items, textId) => {
+            const box = document.getElementById(id);
+            if (!box) return;
+            const hasItems = Array.isArray(items) && items.length > 0;
+            box.style.display = hasItems ? '' : 'none';
+            if (textId) setText(textId, hasItems ? `[${items.join(', ')}]` : '');
+        };
+        const setList = (boxId, listId, items) => {
+            const box = document.getElementById(boxId);
+            const list = document.getElementById(listId);
+            const hasItems = Array.isArray(items) && items.length > 0;
+            if (box) box.style.display = hasItems ? '' : 'none';
+            if (!list) return;
+            list.innerHTML = '';
+            if (!hasItems) return;
+            items.forEach(item => {
+                const row = document.createElement('div');
+                row.style.fontFamily = 'monospace';
+                row.style.fontSize = '0.85rem';
+                row.style.marginBottom = '0.25rem';
+                row.textContent = item;
+                list.appendChild(row);
+            });
+        };
+
+        const render = data => {
+            const ready = data && data.ready === true;
+            const card = document.getElementById('readinessCard');
+            const icon = document.getElementById('readinessIcon');
+            const badge = document.getElementById('readinessBadge');
+            
+            if (card) {
+                card.classList.toggle('border-success', ready);
+                card.classList.toggle('border-danger', !ready);
+                card.style.borderLeftColor = ready ? 'var(--success-color)' : 'var(--danger-color)';
+            }
+            if (icon) {
+                icon.className = `ti ${ready ? 'ti-clipboard-check' : 'ti-clipboard-x'}`;
+            }
+            if (badge) {
+                badge.className = `status-badge ${ready ? 'enrolled' : 'rejected'}`;
+                badge.innerHTML = `<div class="status-dot"></div><span>${ready ? 'Ready' : 'Needs review'}</span>`;
+            }
+            
+            const transitionButton = document.getElementById('transitionTermButton');
+            if (transitionButton) transitionButton.disabled = !ready;
+            
+            setText('transitionReadinessHint', ready ? 'Selected term is ready to transition.' : 'Select a ready term to enable transition.');
+            setText('readinessTitle', 'Selected Term Readiness');
+            setText('readinessTermLabel', data.termLabel || 'No selected term');
+            setText('readinessStatusText', data.statusText || 'Readiness summary is not available.');
+            setText('readinessProgramCount', data.programCount ?? 0);
+            setText('readinessCheckedScopeCount', data.checkedScopeCount ?? 0);
+            setText('readinessMissingFeeScopeCount', data.missingFeeScopeCount ?? 0);
+            setText('readinessFallbackFeeScopeCount', data.fallbackFeeScopeCount ?? 0);
+            setText('readinessIncompleteFeeScopeCount', data.incompleteFeeScopeCount ?? 0);
+            
+            setBox('readinessMissingTablesBox', data.missingTables, 'readinessMissingTablesText');
+            setBox('readinessMissingCurriculaBox', data.missingCurricula, 'readinessMissingCurriculaText');
+            setList('readinessMissingFeesBox', 'readinessMissingFeesList', data.missingFeeExamples);
+            setList('readinessFallbackFeesBox', 'readinessFallbackFeesList', data.fallbackFeeExamples);
+            setList('readinessIncompleteFeesBox', 'readinessIncompleteFeesList', data.incompleteFeeExamples);
+            
+            const feesLink = document.getElementById('readinessTermFeesLink');
+            if (feesLink) {
+                feesLink.href = `${contextPath}admin/term-fees${data.termId ? `?termId=${encodeURIComponent(data.termId)}` : ''}`;
+            }
+        };
+
+        select.addEventListener('change', async () => {
+            if (!select.value) return;
+            setText('readinessTitle', 'Selected Term Readiness');
+            setText('readinessStatusText', 'Checking selected term...');
+            const transitionButton = document.getElementById('transitionTermButton');
+            if (transitionButton) transitionButton.disabled = true;
+            setText('transitionReadinessHint', 'Checking selected term readiness...');
+            try {
+                const res = await fetch(`${contextPath}admin/settings/readiness?termCode=${encodeURIComponent(select.value)}`);
+                render(await res.json());
+            } catch (err) {
+                render({ ready: false, termLabel: select.options[select.selectedIndex]?.text || 'Selected term', statusText: 'Unable to load readiness summary.' });
+            }
+        });
+    })();
+</script>
+</body>
+</html>

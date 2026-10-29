@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head}"></head>
+<body>
+<style th:attr="nonce=${cspNonce}">
+    .classes-filter-toolbar {
+        display: grid;
+        grid-template-columns: minmax(280px, 1.6fr) minmax(150px, 0.8fr) minmax(100px, 0.45fr) auto auto;
+        align-items: end;
+        gap: 0.75rem;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .classes-filter-toolbar .form-control { width: 100%; }
+    .classes-filter-toolbar .btn { white-space: nowrap; }
+    @media (max-width: 780px) {
+        .classes-filter-toolbar { grid-template-columns: minmax(0, 1fr) minmax(130px, 0.7fr) auto auto; }
+        .classes-filter-toolbar .classes-search-field { grid-column: 1 / -1; }
+    }
+    @media (max-width: 520px) {
+        .classes-filter-toolbar { grid-template-columns: 1fr 1fr; }
+        .classes-filter-toolbar .classes-filter-field { grid-column: span 1; }
+        .classes-filter-toolbar .btn { width: 100%; }
+    }
+</style>
+<div class="app">
+    <div th:replace="~{fragments/layout :: topbar}"></div>
+
+    <div class="body-wrapper">
+        <nav th:replace="~{fragments/layout :: sidebar(activeLink='classes')}"></nav>
+
+        <main class="main" role="main" id="main-content">
+            <div class="breadcrumb" aria-label="Breadcrumb">
+                <i class="ti ti-home" aria-hidden="true"></i>
+                <i class="ti ti-chevron-right" aria-hidden="true"></i>
+                <span>Academics</span>
+                <i class="ti ti-chevron-right" aria-hidden="true"></i>
+                <span>Subjects</span>
+            </div>
+
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">Subject Management</h1>
+                    <p class="page-subtitle">Manage class offerings, instructor assignments, and statuses.</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title" style="margin: 0; color: var(--primary-color);"><i class="ti ti-books" aria-hidden="true"></i> All Class Offerings</h5>
+                </div>
+                <div class="search-bar" role="search" style="display:none;">
+                    <i class="ti ti-search" aria-hidden="true"></i>
+                    <input type="text" id="classSearch" placeholder="Search by program (BSIT), section code, course, or instructor…" aria-label="Search classes" oninput="filterClasses()"/>
+                </div>
+                <div id="classCount" style="display:none;"></div>
+                <div class="filter-pills" role="group" aria-label="Filter classes" style="display:none;">
+                    <div class="pill active" role="button" tabindex="0">All</div>
+                    <div class="pill" role="button" tabindex="0">Open / Draft</div>
+                    <div class="pill" role="button" tabindex="0">Submitted</div>
+                    <div class="pill" role="button" tabindex="0">Approved</div>
+                </div>
+                <form th:action="@{/admin/classes}" method="get" class="classes-filter-toolbar" role="search">
+                    <input type="hidden" name="page" value="1">
+                    <div class="classes-filter-field classes-search-field"><label class="form-label">Search</label><input name="search" class="form-control" th:value="${search}" placeholder="Course, section, or instructor"></div>
+                    <div class="classes-filter-field"><label class="form-label">Status</label><select name="status" class="form-control">
+                        <option value="ALL" th:selected="${selectedClassStatus == null or selectedClassStatus == 'ALL'}">All</option>
+                        <option value="OPEN" th:selected="${selectedClassStatus == 'OPEN'}">Open / Draft</option>
+                        <option value="SUBMITTED" th:selected="${selectedClassStatus == 'SUBMITTED'}">Submitted</option>
+                        <option value="APPROVED" th:selected="${selectedClassStatus == 'APPROVED'}">Approved</option>
+                    </select></div>
+                    <div class="classes-filter-field"><label class="form-label">Rows</label><select name="size" class="form-control">
+                        <option value="25" th:selected="${pageSize == 25}">25</option>
+                        <option value="50" th:selected="${pageSize == 50}">50</option>
+                        <option value="100" th:selected="${pageSize == 100}">100</option>
+                    </select></div>
+                    <button type="submit" class="btn btn-primary"><i class="ti ti-filter" aria-hidden="true"></i> Apply</button>
+                    <a th:href="@{/admin/classes}" class="btn btn-outline">Reset</a>
+                </form>
+                <div style="overflow-x: auto;" th:if="${filtersApplied}">
+                    <table class="table-eac" style="margin: 0;">
+                        <thead style="background: var(--bg-tertiary);">
+                            <tr>
+                                <th>Course</th>
+                                <th>Description</th>
+                                <th>Instructor</th>
+                                <th>Schedule</th>
+                                <th>Status</th>
+                                <th style="text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="c : ${classes}" class="class-row"
+                                th:attr="data-search=${(c.course_code != null ? c.course_code : '') + ' ' + (c.section != null ? c.section : '') + ' ' + (c.description != null ? c.description : '') + ' ' + (c.faculty_name != null ? c.faculty_name : '') + ' ' + (c.pretty_schedule != null ? c.pretty_schedule : '')}">
+                                <td style="font-weight: 700; color: var(--primary-color);" th:text="${c.course_code + ' - ' + c.section}"></td>
+                                <td th:text="${c.description}"></td>
+                                <td th:text="${c.faculty_name != null ? c.faculty_name : 'TBA'}"></td>
+                                <td style="font-size: 0.85rem; color: var(--text-muted);" th:text="${c.pretty_schedule}"></td>
+                                <td>
+                                    <span class="status-badge" th:classappend="${c.status == 'OPEN' ? 'enrolled' : (c.status == 'PENDING_APPROVAL' ? 'waitlist' : 'inactive')}" th:text="${c.status == 'OPEN' ? 'OPEN / DRAFT' : c.status}"></span>
+                                </td>
+                                <td style="text-align: right;">
+                                    <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                                        <a th:href="@{/admin/classes/view/{id}(id=${c.schedule_id})}" class="btn btn-ghost" style="padding: 0.25rem 0.5rem; font-size: 0.85rem;"><i class="ti ti-eye"></i> View</a>
+                                        
+                                        <form th:if="${c.status == 'OPEN'}" th:action="@{/admin/toggle-unlock}" method="post" style="margin: 0;">
+                                            <input type="hidden" name="scheduleId" th:value="${c.schedule_id}">
+                                            <input type="hidden" name="unlockStatus" th:value="${c.is_unlocked == 1 ? 0 : 1}">
+                                            <input type="hidden" name="returnSearch" th:value="${search}">
+                                            <input type="hidden" name="returnStatus" th:value="${selectedClassStatus}">
+                                            <input type="hidden" name="returnPage" th:value="${page}">
+                                            <input type="hidden" name="returnSize" th:value="${pageSize}">
+                                            <button type="submit" class="btn btn-primary" th:style="${c.is_unlocked == 1 ? 'background: var(--text-muted); border-color: var(--text-muted);' : 'background: #D97706; border-color: #D97706;'}" style="padding: 0.25rem 0.5rem; font-size: 0.85rem;" th:title="${c.is_unlocked == 1 ? 'Remove Override' : 'Override Date Limits'}">
+                                                <i class="ti" th:classappend="${c.is_unlocked == 1 ? 'ti-lock' : 'ti-lock-open'}"></i>
+                                            </button>
+                                        </form>
+
+                                        <form th:if="${c.status == 'SUBMITTED'}" th:action="@{/admin/revert-class}" method="post" style="margin: 0;" data-confirm="WARNING: This will UN-FINALIZE the class and return it to DRAFT mode for the professor. Continue?" data-confirm-title="Revert submitted class?" data-confirm-tone="warning">
+                                            <input type="hidden" name="scheduleId" th:value="${c.schedule_id}">
+                                            <input type="hidden" name="returnSearch" th:value="${search}">
+                                            <input type="hidden" name="returnStatus" th:value="${selectedClassStatus}">
+                                            <input type="hidden" name="returnPage" th:value="${page}">
+                                            <input type="hidden" name="returnSize" th:value="${pageSize}">
+                                            <button type="submit" class="btn btn-primary" style="background: #DC2626; border-color: #DC2626; padding: 0.25rem 0.5rem; font-size: 0.85rem;" title="Re-open for Editing">
+                                                <i class="ti ti-arrow-back-up"></i> Revert
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(classes)}"><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">No class offerings found.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:.75rem; flex-wrap:wrap; padding:1rem 1.5rem; border-top:1px solid var(--border-color); color:var(--text-muted); font-size:.86rem;" th:if="${filtersApplied and totalRows > 0}">
+                    <span th:text="|Showing ${pageStart}-${pageEnd} of ${totalRows} sections|">Showing 1-50 of 50 sections</span>
+                    <div style="display:flex; gap:.5rem; align-items:center;">
+                        <a class="btn btn-outline" th:style="${page == 1} ? 'opacity:.45;pointer-events:none;'"
+                           th:href="@{/admin/classes(search=${search},status=${selectedClassStatus},page=${page - 1},size=${pageSize})}">Previous</a>
+                        <span th:text="|Page ${page} of ${totalPages}|">Page 1 of 1</span>
+                        <a class="btn btn-outline" th:style="${page >= totalPages} ? 'opacity:.45;pointer-events:none;'"
+                           th:href="@{/admin/classes(search=${search},status=${selectedClassStatus},page=${page + 1},size=${pageSize})}">Next</a>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+<script th:attr="nonce=${cspNonce}">
+    function filterClasses() {
+        const query = (document.getElementById('classSearch')?.value || '').toLowerCase().trim();
+        const rows = document.querySelectorAll('.class-row');
+        let visible = 0;
+        rows.forEach(row => {
+            const hay = (row.getAttribute('data-search') || '').toLowerCase();
+            const match = !query || hay.includes(query);
+            row.style.display = match ? '' : 'none';
+            if (match) visible++;
+        });
+        const badge = document.getElementById('classCount');
+        if (badge) {
+            badge.textContent = query
+                ? visible + ' / ' + rows.length + ' sections shown'
+                : rows.length + ' sections for active term';
+        }
+        const emptyRow = document.querySelector('tbody tr:not(.class-row)');
+        if (emptyRow) emptyRow.style.display = rows.length === 0 ? '' : 'none';
+    }
+    document.addEventListener('DOMContentLoaded', filterClasses);
+</script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head}"></head>
+<body>
+<div class="app">
+    <div th:replace="~{fragments/layout :: topbar}"></div>
+
+    <div class="body-wrapper">
+        <nav th:replace="~{fragments/layout :: sidebar(activeLink='dashboard')}"></nav>
+
+        <main class="main" role="main" id="main-content">
+            <div class="breadcrumb" aria-label="Breadcrumb">
+                <i class="ti ti-home" aria-hidden="true"></i>
+                <i class="ti ti-chevron-right" aria-hidden="true"></i>
+                <span>Dashboard</span>
+            </div>
+
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">Good morning, Admin</h1>
+                    <p class="page-subtitle"
+                       th:text="${activeTerm != null
+                           ? 'Academic Year ' + activeTerm.academic_year + ' | '
+                               + (activeTerm.semester_number == 1 ? 'First Semester'
+                                   : (activeTerm.semester_number == 2 ? 'Second Semester'
+                                       : 'Semester ' + activeTerm.semester_number))
+                           : 'No active academic term'}">Active academic term</p>
+                </div>
+            </div>
+
+            <div class="stat-grid">
+                <div class="stat-card accent">
+                    <div class="stat-icon-row">
+                        <div class="stat-icon white-soft"><i class="ti ti-users" aria-hidden="true"></i></div>
+                        <span class="stat-trend white-up">Active</span>
+                    </div>
+                    <div class="stat-value" th:text="${totalEnrolled}">2,841</div>
+                    <div class="stat-label">Total enrolled</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon-row">
+                        <div class="stat-icon red-soft"><i class="ti ti-user-check" aria-hidden="true"></i></div>
+                        <span class="stat-trend up">New</span>
+                    </div>
+                    <div class="stat-value" th:text="${newEnrolled}">147</div>
+                    <div class="stat-label">New this term</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon-row">
+                        <div class="stat-icon red-soft"><i class="ti ti-award" aria-hidden="true"></i></div>
+                        <span class="stat-trend up">Active</span>
+                    </div>
+                    <div class="stat-value" th:text="${scholarshipsGranted}">24</div>
+                    <div class="stat-label">Scholarships Granted</div>
+                </div>
+            </div>
+
+            <!-- Student Profile Card -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i class="ti ti-users" aria-hidden="true"></i> Student profiles</div>
+                    <a class="card-link" th:href="@{/admin/student-manager}" role="button" tabindex="0">View profiles -></a>
+                </div>
+                <form class="search-bar" role="search" method="get" action="/admin/student-manager">
+                    <i class="ti ti-search" aria-hidden="true"></i>
+                    <input type="text" name="username" placeholder="Search by name, ID, or year level..." aria-label="Search student profiles"/>
+                </form>
+                <div class="filter-pills" role="group" aria-label="Filter students">
+                    <div class="pill active" role="button" tabindex="0">All</div>
+                    <div class="pill" role="button" tabindex="0">1st Year</div>
+                    <div class="pill" role="button" tabindex="0">2nd Year</div>
+                    <div class="pill" role="button" tabindex="0">3rd Year</div>
+                    <div class="pill" role="button" tabindex="0">4th Year</div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table-eac" aria-label="Student profiles">
+                        <thead>
+                            <tr>
+                                <th class="dashboard-student-col">Student</th>
+                                <th class="dashboard-year-col">Year Level</th>
+                                <th class="dashboard-status-col">Status</th>
+                                <th class="dashboard-enrolled-col">Enrolled</th>
+                                <th class="dashboard-actions-col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:if="${recentEnrollments == null or recentEnrollments.isEmpty()}">
+                                <td colspan="5" class="dashboard-empty-state">
+                                    <i class="ti ti-users-minus dashboard-empty-state-icon"></i>
+                                    No recent enrollments to display.
+                                </td>
+                            </tr>
+                            <tr th:each="student : ${recentEnrollments}">
+                                <td>
+                                    <div class="dashboard-student-name" th:text="${student.real_name}">John Doe</div>
+                                    <div class="dashboard-student-number" th:text="${student.student_number}">26-1-00001</div>
+                                </td>
+                                <td th:text="${student.year_level}">1</td>
+                                <td><span class="status-badge" th:classappend="${student.admission_status == 'Admitted' ? 'success' : 'warning'}" th:text="${student.admission_status}">Admitted</span></td>
+                                <td th:text="${student.admission_date != null ? #dates.format(student.admission_date, 'MMM dd, yyyy') : '-'}">Oct 24, 2025</td>
+                                <td>
+                                    <a class="btn btn-ghost dashboard-view-button" th:href="@{/admin/student-manager(username=${student.student_number})}">
+                                        <i class="ti ti-eye" aria-hidden="true"></i> View
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+</body>
+</html>
